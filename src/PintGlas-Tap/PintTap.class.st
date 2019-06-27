@@ -88,6 +88,7 @@ PintTap >> createSnapshot [
 			homeImageDir := Smalltalk imageDirectory.
 			tmpImageName := self path basename , '.image'.
 			tmpImageDir := self path.
+			tmpImageDir deleteAll.
 			homeImageDir copyAllTo: tmpImageDir.
 			(tmpImageDir / homeImageName) delete.
 			(tmpImageDir / Smalltalk changesFile basename) delete.
