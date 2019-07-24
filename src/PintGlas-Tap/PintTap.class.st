@@ -45,8 +45,15 @@ PintTap class >> handleRequest: aZnRequest [
 			(basename endsWith: '.zip')
 				ifTrue: [ basename := basename copyFrom: 1 to: basename size - 4 ].
 			tap := self on: self baseDirectory / basename.
-			tap createSnapshot.
-			^ ZnResponse ok: (ZnStringEntity text: 'Here you go') ].
+			tap
+				createZipAndDo: [ :zipRef | 
+					^ ZnResponse
+						ok:
+							(ZnStreamingEntity
+								readFrom: zipRef binaryReadStream
+								usingType: (ZnMimeType main: 'application' sub: 'zip')
+								andLength: zipRef size) ].
+			^ self ].
 	^ self badRequest: aZnRequest
 ]
 
@@ -80,21 +87,16 @@ PintTap class >> stop [
 ]
 
 { #category : #snapshotting }
-PintTap >> createSnapshot [
+PintTap >> createSnapshotAndDo: aBlock [
 	<script: 'PintTap fromUser createSnapshot'>
 	| homeImageName tmpImageName homeImageDir tmpImageDir semaphore isClone |
 	DefaultExecutionEnvironment
 		beActiveDuring: [ homeImageName := Smalltalk shortImageName.
 			homeImageDir := Smalltalk imageDirectory.
 			tmpImageName := self path basename , '.image'.
-			tmpImageDir := self path.
-			tmpImageDir
+			tmpImageDir := self path
 				ensureCreateDirectory;
-				deleteAll;
-				ensureCreateDirectory.
-			homeImageDir copyAllTo: tmpImageDir.
-			(tmpImageDir / homeImageName) delete.
-			(tmpImageDir / Smalltalk changesFile basename) delete.
+				yourself.
 			Smalltalk
 				imagePath: (tmpImageDir / tmpImageName) absolutePath fullName.
 			semaphore := Semaphore new.
@@ -111,37 +113,48 @@ PintTap >> createSnapshot [
 			semaphore wait.
 			isClone = true
 				ifTrue: [ SessionManager default currentSession
-						executeDeferredStartupActions: isClone ] ]
+						executeDeferredStartupActions: isClone ]
+				ifFalse: [ aBlock value: tmpImageDir / tmpImageName ] ]
 ]
 
-{ #category : #archiving }
-PintTap >> createZip [
-	^ ZipArchive new
-		addDirectory: self path as: self path basename;
-		yourself
+{ #category : #snapshotting }
+PintTap >> createZipAndDo: aBlock [
+	<script: 'PintTap fromUser createSnapshot'>
+	self
+		createSnapshotAndDo: [ :imageRef | 
+			| zip zipRef |
+			zip := ZipArchive new.
+			zip
+				addFile: imageRef fullName
+				as: self path basename , '/' , imageRef basename.
+			zip
+				addFile: FileLocator changes fullName
+				as:
+					self path basename , '/' , imageRef basenameWithoutExtension
+						, '.changes'.
+			zip
+				addFile: Smalltalk sourcesFile fullName
+				as: self path basename , '/' , Smalltalk sourcesFile basename.
+			FileLocator localDirectory allChildren
+				do: [ :file | 
+					file isFile
+						ifTrue: [ | filename |
+							filename := self path basename , '/'
+								, (file relativeToPath: FileLocator imageDirectory) fullName.
+							Transcript
+								cr;
+								show: 'archive: ' , filename.
+							zip addFile: file fullName as: filename ] ].
+			zipRef := self path parent / (self path basename , '.zip').
+			zipRef exists
+				ifTrue: [ zipRef delete ].
+			zipRef binaryWriteStreamDo: [ :stream | zip writeTo: stream ].
+			aBlock value: zipRef ]
 ]
 
 { #category : #'library path' }
 PintTap >> ffiLibraryName [ 
 	^ LibC
-]
-
-{ #category : #private }
-PintTap >> fork [
-	^ self ffiCall: #(int fork #())
-]
-
-{ #category : #private }
-PintTap >> fork: aBlock [
-	| pid |
-	pid := self fork.
-	pid < 0
-		ifTrue: [ self error: 'failed to fork' ].
-	pid = 0
-		ifTrue: [ aBlock valueNoContextSwitch ].
-	Transcript
-		cr;
-		show: 'forked ' , pid printString
 ]
 
 { #category : #accessing }
