@@ -4,6 +4,9 @@ Class {
 	#instVars : [
 		'path'
 	],
+	#classVars : [
+		'SamplerCommunicationProcess'
+	],
 	#category : #'PintGlas-Tap'
 }
 
@@ -27,6 +30,34 @@ PintTap class >> on: aFileReference [
 	^ self new
 		path: aFileReference;
 		yourself
+]
+
+{ #category : #utilities }
+PintTap class >> start [
+	<script: 'PintTap start'>
+	self stop.
+	SamplerCommunicationProcess := [ | webSocket |
+	webSocket := ZnWebSocket to: 'ws://localhost:8801'.
+	[ | tapName |
+	webSocket sendMessage: 'xxx'.
+	tapName := nil.
+	[ [ tapName := webSocket readMessage ]
+		on: ConnectionTimedOut
+		do: [ nil ].
+	tapName isNil ] whileTrue.
+	webSocket sendFile: FileLocator image ]
+		ensure: [ webSocket close ] ]
+		forkAt: Processor userBackgroundPriority
+]
+
+{ #category : #utilities }
+PintTap class >> stop [
+	<script: 'PintTap stop'>
+	SamplerCommunicationProcess
+		ifNotNil: [ (SamplerCommunicationProcess isTerminated
+				or: [ SamplerCommunicationProcess isTerminating ])
+				ifFalse: [ SamplerCommunicationProcess terminate ] ].
+	SamplerCommunicationProcess := nil
 ]
 
 { #category : #snapshotting }
