@@ -2,7 +2,9 @@ Class {
 	#name : #PintSampler,
 	#superclass : #Object,
 	#instVars : [
-		'tapSockets'
+		'samplerDirectory',
+		'tapSockets',
+		'tapValves'
 	],
 	#classVars : [
 		'Server'
@@ -13,6 +15,7 @@ Class {
 { #category : #'server handling' }
 PintSampler class >> flushServer [
 	<script: 'PintSampler flushServer'>
+	Server ifNotNil: [ self stop ].
 	Server := nil
 ]
 
@@ -40,40 +43,56 @@ PintSampler class >> stop [
 		stop
 ]
 
+{ #category : #defaults }
+PintSampler >> defaultSamplerDirectory [
+	^ (FileLocator documents / 'PintGlas') ensureCreateDirectory
+]
+
+{ #category : #accessing }
+PintSampler >> fileReferenceForTap: aString [
+	^ self samplerDirectory / aString withExtension: 'glas'
+]
+
 { #category : #initialization }
 PintSampler >> initialize [
 	super initialize.
-	tapSockets := Dictionary new.
+	tapValves := Dictionary new
 ]
 
 { #category : #'accessing - taps' }
-PintSampler >> registerTap: aString socket: aWebSocket [
-	aString inspect.
-	tapSockets at: aString put: aWebSocket
+PintSampler >> registerTap: aString [
+	^ tapValves at: aString put: Semaphore new
 ]
 
 { #category : #'accessing - taps' }
-PintSampler >> tapForSocket: aWebSocket ifAbsent: errorBlock [
-	^ tapSockets keyAtValue: aWebSocket ifAbsent: errorBlock
+PintSampler >> retrieveTap: aString ifAbsent: errorBlock [
+	(tapValves at: aString ifAbsent: [ ^ errorBlock value ])
+		signal;
+		wait.
+	^ self fileReferenceForTap: aString
 ]
 
-{ #category : #'accessing - taps' }
-PintSampler >> unregisterSocket: aWebSocket [
-	self
-		unregisterTap: (self tapForSocket: aWebSocket ifAbsent: [ ^ self ])
+{ #category : #accessing }
+PintSampler >> samplerDirectory [
+	^ samplerDirectory
+		ifNil: [ samplerDirectory := self defaultSamplerDirectory ]
 ]
 
 { #category : #'accessing - taps' }
 PintSampler >> unregisterTap: aString [
-	tapSockets removeKey: aString ifAbsent: [  ]
+	tapValves removeKey: aString ifAbsent: [  ]
 ]
 
 { #category : #'request handling' }
 PintSampler >> value: aWebSocket [
-	[ aWebSocket
-		runWith: [ :tapName | 
-			self unregisterSocket: aWebSocket.
-			self registerTap: tapName socket: aWebSocket ] ]
-		on: ConnectionClosed
-		do: [ :ex | self unregisterSocket: aWebSocket ]
+	| tapName ref sem |
+	tapName := aWebSocket readMessage.
+	sem := self registerTap: tapName.
+	[ sem wait.
+	aWebSocket sendMessage: tapName.
+	ref := self fileReferenceForTap: tapName.
+	ref ensureDelete.
+	aWebSocket readMessageToFile: ref.
+	sem signal ]
+		ensure: [ self unregisterTap: tapName ]
 ]

@@ -24,6 +24,13 @@ ZnWebSocketFrame >> readBodyOfSize: size from: stream to: aFileReference [
 ]
 
 { #category : #'*PintGlas-Sampler' }
+ZnWebSocketFrame class >> readFrom: stream toFile: aFileRef [
+	^ self new
+		readFrom: stream toFile: aFileRef;
+		yourself
+]
+
+{ #category : #'*PintGlas-Sampler' }
 ZnWebSocketFrame >> readFrom: stream toFile: aFileReference [
 	| byte size |
 	(byte := stream next) ifNil: [ ConnectionClosed signal ].
@@ -51,13 +58,18 @@ ZnWebSocketFrame >> writeFileBodyOfSize: size on: stream [
 			stream nextPutAll: mask ].
 	size = 0
 		ifTrue: [ ^ self ].
-	masked
-		ifTrue: [ | index |
-			index := 0.
-			[ body atEnd ]
-				whileFalse: [ stream
-						nextPut: (body next bitXor: (mask at: ((index := index + 1) - 1) \\ 4 + 1)) ] ]
-		ifFalse: [ [ body atEnd ] whileFalse: [ stream nextPut: body next ] ]
+	body
+		binaryReadStreamDo: [ :readStream | 
+			masked
+				ifTrue: [ | index |
+					index := 0.
+					[ readStream atEnd ]
+						whileFalse: [ stream
+								nextPut:
+									(readStream next
+										bitXor: (mask at: ((index := index + 1) - 1) \\ 4 + 1)) ] ]
+				ifFalse:
+					[ [ readStream atEnd ] whileFalse: [ stream nextPut: readStream next ] ] ]
 ]
 
 { #category : #'*PintGlas-Sampler' }
