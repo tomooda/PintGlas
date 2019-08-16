@@ -12,10 +12,9 @@ BaselineOfPintGlas >> baseline: spec [
 		do: [ spec
 				baseline: 'ZincHTTPComponents'
 				with: [ spec
-						loads: 'WebSocket';
-						repository: 'github://svenvc/zinc/repository' ].
+						repository: 'github://svenvc/zinc/repository';
+						loads: 'WebSocket' ].
 			spec
-				package: 'Zinc-Character-Encoding-Core';
 				package: 'PintGlas-Tap'
 					with: [ spec requires: 'ZincHTTPComponents' ];
 				package: 'PintGlas-Sampler'
