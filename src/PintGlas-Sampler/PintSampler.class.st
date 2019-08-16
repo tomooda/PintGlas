@@ -49,8 +49,21 @@ PintSampler >> defaultSamplerDirectory [
 ]
 
 { #category : #accessing }
-PintSampler >> fileReferenceForTap: aString [
-	^ self samplerDirectory / aString withExtension: 'glas'
+PintSampler >> fileReferenceForTap: aDictionary [
+	| host path name |
+	host := aDictionary at: 'host'.
+	path := aDictionary at: 'path'.
+	name := aDictionary at: 'name'.
+	^ self samplerDirectory / host / (self hashPath: path) / name
+		/
+			(self
+				hashPath: host , path , name , Time microsecondClockValue asString)
+		withExtension: 'glas'
+]
+
+{ #category : #accessing }
+PintSampler >> hashPath: aString [
+	^ (SHA1 hashMessage: aString asString) hex copyFrom: 1 to: 10
 ]
 
 { #category : #initialization }
@@ -85,12 +98,13 @@ PintSampler >> unregisterTap: aString [
 
 { #category : #'request handling' }
 PintSampler >> value: aWebSocket [
-	| tapName ref sem |
-	tapName := aWebSocket readMessage.
-	sem := self registerTap: tapName.
+	| tapInfo tapName ref sem |
+	tapInfo := STONJSON fromString: aWebSocket readMessage.
+	tapName := tapInfo at: 'name'.
+	sem := self registerTap: {tapInfo at: 'host' . tapInfo at: 'path' . tapInfo at: 'name'}.
 	[ sem wait.
 	aWebSocket sendMessage: tapName.
-	ref := self fileReferenceForTap: tapName.
+	ref := self fileReferenceForTap: tapInfo.
 	ref ensureDelete.
 	aWebSocket readMessageToFile: ref.
 	sem signal ]
