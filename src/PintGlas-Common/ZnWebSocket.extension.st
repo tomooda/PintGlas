@@ -1,6 +1,6 @@
 Extension { #name : #ZnWebSocket }
 
-{ #category : #'*PintGlas-Sampler' }
+{ #category : #'*PintGlas-Common' }
 ZnWebSocket >> readFrameToFile: aFileReference [
 	"Read and return the next non-control frame. Wait.
 	Control frames are handled. ConnectionClosed is signalled when the other end closes."
@@ -11,7 +11,7 @@ ZnWebSocket >> readFrameToFile: aFileReference [
 	^ frame
 ]
 
-{ #category : #'*PintGlas-Sampler' }
+{ #category : #'*PintGlas-Common' }
 ZnWebSocket >> readMessageToFile: aFileReference [
 	"Read and return a complete message String or ByteArray, joining frames. 
 	ConnectionClosed is signalled when the other end closes."
@@ -22,7 +22,7 @@ ZnWebSocket >> readMessageToFile: aFileReference [
 	^ aFileReference
 ]
 
-{ #category : #'*PintGlas-Sampler' }
+{ #category : #'*PintGlas-Common' }
 ZnWebSocket >> sendFile: aFileReference [
 	"Send the content of the aFileReference in one binary frame"
 
@@ -31,7 +31,7 @@ ZnWebSocket >> sendFile: aFileReference [
 	self sendFileFrame: frame
 ]
 
-{ #category : #'*PintGlas-Sampler' }
+{ #category : #'*PintGlas-Common' }
 ZnWebSocket >> sendFileFrame: frame [
 	"Send a single frame, masked when I am in a client role, flush"
 	

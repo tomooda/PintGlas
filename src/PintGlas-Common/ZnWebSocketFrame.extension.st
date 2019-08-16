@@ -1,6 +1,6 @@
 Extension { #name : #ZnWebSocketFrame }
 
-{ #category : #'*PintGlas-Sampler' }
+{ #category : #'*PintGlas-Common' }
 ZnWebSocketFrame class >> fileRef: aFileReference [
 	^ self new
 		opcode: 2;
@@ -9,7 +9,7 @@ ZnWebSocketFrame class >> fileRef: aFileReference [
 		yourself
 ]
 
-{ #category : #'*PintGlas-Sampler' }
+{ #category : #'*PintGlas-Common' }
 ZnWebSocketFrame >> readBodyOfSize: size from: stream to: aFileReference [
 	| mask |
 	aFileReference
@@ -23,14 +23,7 @@ ZnWebSocketFrame >> readBodyOfSize: size from: stream to: aFileReference [
 				ifFalse: [ size timesRepeat: [ writeStream nextPut: stream next ] ] ]
 ]
 
-{ #category : #'*PintGlas-Sampler' }
-ZnWebSocketFrame class >> readFrom: stream toFile: aFileRef [
-	^ self new
-		readFrom: stream toFile: aFileRef;
-		yourself
-]
-
-{ #category : #'*PintGlas-Sampler' }
+{ #category : #'*PintGlas-Common' }
 ZnWebSocketFrame >> readFrom: stream toFile: aFileReference [
 	| byte size |
 	(byte := stream next) ifNil: [ ConnectionClosed signal ].
@@ -50,7 +43,14 @@ ZnWebSocketFrame >> readFrom: stream toFile: aFileReference [
 		ifFalse: [ self readBodyOfSize: size from: stream to: aFileReference ]
 ]
 
-{ #category : #'*PintGlas-Sampler' }
+{ #category : #'*PintGlas-Common' }
+ZnWebSocketFrame class >> readFrom: stream toFile: aFileRef [
+	^ self new
+		readFrom: stream toFile: aFileRef;
+		yourself
+]
+
+{ #category : #'*PintGlas-Common' }
 ZnWebSocketFrame >> writeFileBodyOfSize: size on: stream [
 	| mask |
 	masked
@@ -72,7 +72,7 @@ ZnWebSocketFrame >> writeFileBodyOfSize: size on: stream [
 					[ [ readStream atEnd ] whileFalse: [ stream nextPut: readStream next ] ] ]
 ]
 
-{ #category : #'*PintGlas-Sampler' }
+{ #category : #'*PintGlas-Common' }
 ZnWebSocketFrame >> writeFileOn: stream [
 	| byte size |
 	byte := (final ifTrue: [ 128 ] ifFalse: [ 0 ]) + opcode.
