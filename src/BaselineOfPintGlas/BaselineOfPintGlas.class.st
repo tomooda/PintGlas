@@ -15,10 +15,12 @@ BaselineOfPintGlas >> baseline: spec [
 						repository: 'github://svenvc/zinc/repository';
 						loads: 'WebSocket' ].
 			spec
+				package: 'PintGlas-Common'
+					with: [ spec requires: 'ZincHTTPComponents' ];
 				package: 'PintGlas-Tap'
-					with: [ spec requires: 'ZincHTTPComponents' ];
+					with: [ spec requires: #('PintGlas-Common' 'ZincHTTPComponents') ];
 				package: 'PintGlas-Sampler'
-					with: [ spec requires: 'ZincHTTPComponents' ];
+					with: [ spec requires: #('PintGlas-Common' 'ZincHTTPComponents') ];
 				yourself.
 			spec
 				group: 'default' with: #('Tap');
