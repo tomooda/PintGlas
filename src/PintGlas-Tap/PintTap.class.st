@@ -32,6 +32,11 @@ PintTap class >> on: aFileReference [
 		yourself
 ]
 
+{ #category : #accessing }
+PintTap class >> protocolVersion [
+	^ #(0 0 1) copy
+]
+
 { #category : #utilities }
 PintTap class >> start [
 	<script: 'PintTap start'>
@@ -39,7 +44,17 @@ PintTap class >> start [
 	SamplerCommunicationProcess := [ | webSocket |
 	webSocket := ZnWebSocket to: 'ws://localhost:8801'.
 	[ | tapName |
-	webSocket sendMessage: 'xxx'.
+	webSocket
+		sendMessage:
+			(STONJSON
+				toString:
+					(Dictionary new
+						at: 'version' put: self protocolVersion;
+						at: 'host' put: NetNameResolver localHostName;
+						at: 'path'
+							put: FileLocator imageDirectory absolutePath pathString;
+						at: 'name' put: Smalltalk imageFile withoutExtension basename;
+						yourself)).
 	tapName := nil.
 	[ [ tapName := webSocket readMessage ]
 		on: ConnectionTimedOut
