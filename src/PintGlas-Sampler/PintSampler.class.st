@@ -49,12 +49,13 @@ PintSampler >> defaultSamplerDirectory [
 ]
 
 { #category : #accessing }
-PintSampler >> fileReferenceForTap: aDictionary [
+PintSampler >> fileReferenceForTap: anArray [
 	| host path name |
-	host := aDictionary at: 'host'.
-	path := aDictionary at: 'path'.
-	name := aDictionary at: 'name'.
-	^ self samplerDirectory / host / (self hashPath: path) / name
+	host := anArray first.
+	path := anArray second.
+	name := anArray third.
+	^ (self samplerDirectory / host / (self hashPath: path) / name)
+		ensureCreateDirectory
 		/
 			(self
 				hashPath: host , path , name , Time microsecondClockValue asString)
@@ -78,11 +79,12 @@ PintSampler >> registerTap: aString [
 ]
 
 { #category : #'accessing - taps' }
-PintSampler >> retrieveTap: aString ifAbsent: errorBlock [
-	(tapValves at: aString ifAbsent: [ ^ errorBlock value ])
+PintSampler >> retrieveTap: anArray ifAbsent: errorBlock [
+	(tapValves at: anArray ifAbsent: [ ^ errorBlock value ])
 		signal;
 		wait.
-	^ self fileReferenceForTap: aString
+	tapValves removeKey: anArray.
+	^ self fileReferenceForTap: anArray
 ]
 
 { #category : #accessing }
