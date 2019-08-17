@@ -75,6 +75,7 @@ PintSampler >> initialize [
 
 { #category : #'accessing - taps' }
 PintSampler >> registerTap: aString [
+	tapValves at: aString ifPresent: [ :sem | sem terminateProcess ].
 	^ tapValves at: aString put: Semaphore new
 ]
 
@@ -94,8 +95,9 @@ PintSampler >> samplerDirectory [
 ]
 
 { #category : #'accessing - taps' }
-PintSampler >> unregisterTap: aString [
-	tapValves removeKey: aString ifAbsent: [  ]
+PintSampler >> unregisterTap: anArray [
+	tapValves at: anArray ifPresent: [ :sem | sem terminateProcess ].
+	tapValves removeKey: anArray ifAbsent: [  ]
 ]
 
 { #category : #'request handling' }
