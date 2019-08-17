@@ -11,11 +11,62 @@ Class {
 	#category : #'PintGlas-Tap'
 }
 
+{ #category : #utilities }
+PintTap class >> askToBeamUp [
+	<script: '[PintTap askToBeamUp] forkAt: Processor userBackgroundPriority'>
+	(Smalltalk isHeadless not
+		and: [ (UIManager default confirm: 'Do you want to beam up the image?')
+				= true ])
+		ifTrue: [ self beamUp ]
+]
+
 { #category : #accessing }
 PintTap class >> baseDirectory [
 	^ (FileLocator documents / 'PintGlas' / 'images')
 		ensureCreateDirectory;
 		yourself
+]
+
+{ #category : #utilities }
+PintTap class >> beamUp [
+	<script: '[PintTap beamUp] forkAt: Processor userBackgroundPriority'>
+	| tapName |
+	tapName := Smalltalk imageFile withoutExtension basename.
+	Transcript
+		cr;
+		show: 'creating a .glas file.'.
+	(self
+		on:
+			(FileLocator imageDirectory
+				/
+					((SHA1 hashMessage: Time microsecondClockValue printString) hex
+						copyFrom: 1
+						to: 10) / tapName) ensureCreateDirectory)
+		createZipAndDo: [ :ref | 
+			| webSocket |
+			webSocket := ZnWebSocket to: 'ws://localhost:8801'.
+			[ webSocket
+				sendMessage:
+					(STONJSON
+						toString:
+							(Dictionary new
+								at: 'version' put: self protocolVersion;
+								at: 'host' put: NetNameResolver localHostName;
+								at: 'path'
+									put: FileLocator imageDirectory absolutePath pathString;
+								at: 'name' put: tapName;
+								at: 'action' put: 'beam';
+								at: 'imageId' put: self imageId;
+								yourself)).
+			Transcript
+				cr;
+				show: 'sending ';
+				show: ref printString.
+			webSocket sendFile: ref.
+			Transcript
+				cr;
+				show: 'done' ]
+				ensure: [ webSocket close ] ]
 ]
 
 { #category : #accessing }
@@ -61,7 +112,7 @@ PintTap class >> protocolVersion [
 ]
 
 { #category : #'startup - shutdown' }
-PintTap class >> shutDown [
+PintTap class >> shutDown: aBoolean [
 	self updateImageId
 ]
 
@@ -90,26 +141,10 @@ PintTap class >> start [
 		on: ConnectionTimedOut
 		do: [ nil ].
 	tapName isNil ] whileTrue.
-	Transcript cr; show: 'creating a .glas file by request.'.
-	(self
-		on:
-			(FileLocator imageDirectory
-				/
-					((SHA1 hashMessage: Time microsecondClockValue printString) hex
-						copyFrom: 1
-						to: 10) / tapName) ensureCreateDirectory)
-		createZipAndDo: [ :ref | 
-			Transcript
-				cr;
-				show: 'sending ';
-				show: ref printString.
-			webSocket
-				sendFile: ref;
-				close.
-			Transcript
-				cr;
-				show: 'done' ].
-	webSocket := nil ]
+	Transcript
+		cr;
+		show: 'got a request for beam up.'.
+	self beamUp ]
 		ensure: [ webSocket ifNotNil: [ webSocket close ] ] ]
 		forkAt: Processor userBackgroundPriority
 ]
