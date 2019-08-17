@@ -5,10 +5,20 @@ Class {
 		'path'
 	],
 	#classVars : [
+		'ImageId',
 		'SamplerCommunicationProcess'
 	],
 	#category : #'PintGlas-Tap'
 }
+
+{ #category : #utilities }
+PintTap class >> askToBeamUp [
+	<script: '[PintTap askToBeamUp] forkAt: Processor userBackgroundPriority'>
+	(Smalltalk isHeadless not
+		and: [ (UIManager default confirm: 'Do you want to beam up the image?')
+				= true ])
+		ifTrue: [ self beamUp ]
+]
 
 { #category : #accessing }
 PintTap class >> baseDirectory [
@@ -17,12 +27,76 @@ PintTap class >> baseDirectory [
 		yourself
 ]
 
+{ #category : #utilities }
+PintTap class >> beamUp [
+	<script: '[PintTap beamUp] forkAt: Processor userBackgroundPriority'>
+	| tapName |
+	tapName := Smalltalk imageFile withoutExtension basename.
+	Transcript
+		cr;
+		show: 'creating a .glas file.'.
+	(self
+		on:
+			(FileLocator imageDirectory
+				/
+					((SHA1 hashMessage: Time microsecondClockValue printString) hex
+						copyFrom: 1
+						to: 10) / tapName) ensureCreateDirectory)
+		createZipAndDo: [ :ref | 
+			| webSocket |
+			webSocket := ZnWebSocket to: 'ws://localhost:8801'.
+			[ webSocket
+				sendMessage:
+					(STONJSON
+						toString:
+							(Dictionary new
+								at: 'version' put: self protocolVersion;
+								at: 'host' put: NetNameResolver localHostName;
+								at: 'path'
+									put: FileLocator imageDirectory absolutePath pathString;
+								at: 'name' put: tapName;
+								at: 'action' put: 'beam';
+								at: 'imageId' put: self imageId;
+								yourself)).
+			Transcript
+				cr;
+				show: 'sending ';
+				show: ref printString.
+			webSocket sendFile: ref.
+			Transcript
+				cr;
+				show: 'done' ]
+				ensure: [ webSocket close ] ]
+]
+
+{ #category : #accessing }
+PintTap class >> ensureImageId [
+	self imageId
+]
+
 { #category : #'instance creation' }
 PintTap class >> fromUser [
 	<script: 'PintTap fromUser inspect'>
 	^ (UIManager default
 		chooseDirectory: 'Tap directory'
 		from: self baseDirectory) ifNotNil: [ :fileRef | self on: fileRef ]
+]
+
+{ #category : #accessing }
+PintTap class >> imageId [
+	<script: 'UIManager default inform: self imageId'>
+	^ ImageId
+		ifNil:
+			[ ImageId := (SHA1 hashMessage: Time microsecondClockValue printString)
+				hex ]
+]
+
+{ #category : #initialization }
+PintTap class >> initialize [
+	self ensureImageId.
+	SessionManager default
+		registerSystemClassNamed: self name
+		atPriority: 90
 ]
 
 { #category : #'instance creation' }
@@ -35,6 +109,11 @@ PintTap class >> on: aFileReference [
 { #category : #accessing }
 PintTap class >> protocolVersion [
 	^ #(0 0 1) copy
+]
+
+{ #category : #'startup - shutdown' }
+PintTap class >> shutDown: aBoolean [
+	self updateImageId
 ]
 
 { #category : #utilities }
@@ -55,21 +134,18 @@ PintTap class >> start [
 							put: FileLocator imageDirectory absolutePath pathString;
 						at: 'name' put: Smalltalk imageFile withoutExtension basename;
 						at: 'action' put: 'wait';
+						at: 'imageId' put: self imageId;
 						yourself)).
 	tapName := nil.
 	[ [ tapName := webSocket readMessage ]
 		on: ConnectionTimedOut
 		do: [ nil ].
 	tapName isNil ] whileTrue.
-	(self
-		on:
-			(FileLocator imageDirectory
-				/
-					((SHA1 hashMessage: Time microsecondClockValue printString) hex
-						copyFrom: 1
-						to: 10) / tapName) ensureCreateDirectory)
-		createZipAndDo: [ :ref | webSocket sendFile: ref ] ]
-		ensure: [ webSocket close ] ]
+	Transcript
+		cr;
+		show: 'got a request for beam up.'.
+	self beamUp ]
+		ensure: [ webSocket ifNotNil: [ webSocket close ] ] ]
 		forkAt: Processor userBackgroundPriority
 ]
 
@@ -81,6 +157,15 @@ PintTap class >> stop [
 				or: [ SamplerCommunicationProcess isTerminating ])
 				ifFalse: [ SamplerCommunicationProcess terminate ] ].
 	SamplerCommunicationProcess := nil
+]
+
+{ #category : #accessing }
+PintTap class >> updateImageId [
+	ImageId := self imageId , '-'
+		,
+			((SHA1 hashMessage: Time microsecondClockValue printString) hex
+				copyFrom: 1
+				to: 4)
 ]
 
 { #category : #snapshotting }
@@ -138,9 +223,6 @@ PintTap >> createZipAndDo: aBlock [
 						ifTrue: [ | filename |
 							filename := self path basename , '/'
 								, (file relativeToPath: FileLocator imageDirectory) fullName.
-							Transcript
-								cr;
-								show: 'archive: ' , filename.
 							zip addFile: file fullName as: filename ] ].
 			zipRef := self path parent / (self path basename , '.zip').
 			zipRef exists
