@@ -54,13 +54,21 @@ PintTap class >> start [
 						at: 'path'
 							put: FileLocator imageDirectory absolutePath pathString;
 						at: 'name' put: Smalltalk imageFile withoutExtension basename;
+						at: 'action' put: 'wait';
 						yourself)).
 	tapName := nil.
 	[ [ tapName := webSocket readMessage ]
 		on: ConnectionTimedOut
 		do: [ nil ].
 	tapName isNil ] whileTrue.
-	webSocket sendFile: FileLocator image ]
+	(self
+		on:
+			(FileLocator imageDirectory
+				/
+					((SHA1 hashMessage: Time microsecondClockValue printString) hex
+						copyFrom: 1
+						to: 10) / tapName) ensureCreateDirectory)
+		createZipAndDo: [ :ref | webSocket sendFile: ref ] ]
 		ensure: [ webSocket close ] ]
 		forkAt: Processor userBackgroundPriority
 ]
