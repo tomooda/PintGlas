@@ -49,11 +49,11 @@ PintSampler >> defaultSamplerDirectory [
 ]
 
 { #category : #accessing }
-PintSampler >> fileReferenceForTap: anArray [
+PintSampler >> fileReferenceForTap: aDictionary [
 	| host path name |
-	host := anArray first.
-	path := anArray second.
-	name := anArray third.
+	host := aDictionary at: 'host'.
+	path := aDictionary at: 'path'.
+	name := aDictionary at: 'name'.
 	^ (self samplerDirectory / host / (self hashPath: path) / name)
 		ensureCreateDirectory
 		/
