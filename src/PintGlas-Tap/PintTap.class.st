@@ -99,6 +99,12 @@ PintTap class >> initialize [
 		atPriority: 90
 ]
 
+{ #category : #accessing }
+PintTap class >> isLive [
+	^ SamplerCommunicationProcess notNil
+		and: [ SamplerCommunicationProcess isTerminated not ]
+]
+
 { #category : #'instance creation' }
 PintTap class >> on: aFileReference [
 	^ self new
@@ -112,8 +118,7 @@ PintTap class >> pintGlasMenuOn: aBuilder [
 	(aBuilder item: #PintGlas)
 		label: 'PintGlas';
 		parent: #Pharo;
-		withSeparatorAfter;
-		order: 2;
+		order: 10;
 		with: [ (aBuilder item: #PintGlasStart)
 				action: [ self beamUp ];
 				label: 'beam up';
@@ -123,6 +128,7 @@ PintTap class >> pintGlasMenuOn: aBuilder [
 				withSeparatorAfter.
 			(aBuilder item: #PintGlasStart)
 				action: [ self start ];
+				precondition: [ self isLive not];
 				label: 'live';
 				parent: #PintGlas;
 				order: 2;
@@ -130,6 +136,7 @@ PintTap class >> pintGlasMenuOn: aBuilder [
 			(aBuilder item: #PintGlasStop)
 				action: [ self stop ];
 				label: 'off';
+				precondition: [ self isLive ];
 				parent: #PintGlas;
 				order: 3;
 				help: 'Disconnect PintGlas server' ]
@@ -198,6 +205,13 @@ PintTap class >> showSettingBrowser [
 
 { #category : #'startup - shutdown' }
 PintTap class >> shutDown: aBoolean [
+	| context |
+	context := thisContext.
+	[ context := context sender.
+	context notNil ]
+		whileTrue: [ (context receiver class == self
+				and: [ context selector = #createSnapshotAndDo: ])
+				ifTrue: [ ^ self ] ].
 	self updateImageId
 ]
 
@@ -207,8 +221,7 @@ PintTap class >> start [
 	self stop.
 	SamplerCommunicationProcess := [ | webSocket |
 	webSocket := ZnWebSocket to: self samplerAddress.
-	[ | tapName |
-	webSocket
+	[ [ webSocket
 		sendMessage:
 			(STONJSON
 				toString:
@@ -222,15 +235,21 @@ PintTap class >> start [
 						at: 'imageId' put: self imageId;
 						yourself)).
 	UIManager default inform: 'Connected to the PintGlas server.'.
-	tapName := nil.
-	[ [ tapName := webSocket readMessage ]
-		on: ConnectionTimedOut
-		do: [ nil ].
-	tapName isNil ] whileTrue.
-	UIManager default inform: 'Got a request for beam up.'.
-	self beamUp ]
-		ensure: [ webSocket ifNotNil: [ webSocket close ] ] ]
-		forkAt: Processor userBackgroundPriority
+	webSocket
+		runWith: [ :tapName | 
+			UIManager default inform: 'Got a request for beam up.'.
+			self beamUp ] ]
+		on: ConnectionClosed
+		do: [ :ex | UIManager default inform: 'PintGlas disconnected.' ] ]
+		ensure: [ [ webSocket close ]
+				on: Error
+				do: [ :ex |  ] ] ] forkAt: Processor userBackgroundPriority
+]
+
+{ #category : #'startup - shutdown' }
+PintTap class >> startUp: aBoolean [
+	(aBoolean and: [ self isLive ])
+		ifTrue: [ self start ]
 ]
 
 { #category : #utilities }
@@ -257,6 +276,7 @@ PintTap class >> updateImageId [
 PintTap >> createSnapshotAndDo: aBlock [
 	<script: 'PintTap fromUser createSnapshot'>
 	| homeImageName tmpImageName homeImageDir tmpImageDir semaphore isClone |
+	self class updateImageId.
 	DefaultExecutionEnvironment
 		beActiveDuring: [ homeImageName := Smalltalk shortImageName.
 			homeImageDir := Smalltalk imageDirectory.
