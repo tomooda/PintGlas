@@ -6,6 +6,7 @@ Class {
 	],
 	#classVars : [
 		'ImageId',
+		'SamplerAddress',
 		'SamplerCommunicationProcess'
 	],
 	#category : #'PintGlas-Tap'
@@ -29,12 +30,10 @@ PintTap class >> baseDirectory [
 
 { #category : #utilities }
 PintTap class >> beamUp [
-	<script: '[PintTap beamUp] forkAt: Processor userBackgroundPriority'>
-	| tapName |
+	<script: 'PintTap beamUp'>
+	[ | tapName |
 	tapName := Smalltalk imageFile withoutExtension basename.
-	Transcript
-		cr;
-		show: 'creating a .glas file.'.
+	UIManager default inform: 'Creating ' , tapName , '.glas'.
 	(self
 		on:
 			(FileLocator imageDirectory
@@ -44,7 +43,7 @@ PintTap class >> beamUp [
 						to: 10) / tapName) ensureCreateDirectory)
 		createZipAndDo: [ :ref | 
 			| webSocket |
-			webSocket := ZnWebSocket to: 'ws://localhost:8801'.
+			webSocket := ZnWebSocket to: self samplerAddress.
 			[ webSocket
 				sendMessage:
 					(STONJSON
@@ -58,15 +57,16 @@ PintTap class >> beamUp [
 								at: 'action' put: 'beam';
 								at: 'imageId' put: self imageId;
 								yourself)).
-			Transcript
-				cr;
-				show: 'sending ';
-				show: ref printString.
+			UIManager default inform: 'sending ' , tapName , '.glas'.
 			webSocket sendFile: ref.
-			Transcript
-				cr;
-				show: 'done' ]
-				ensure: [ webSocket close ] ]
+			UIManager default inform: 'Beam up completed.' ]
+				ensure: [ webSocket close ] ] ]
+		forkAt: Processor userBackgroundPriority
+]
+
+{ #category : #defaults }
+PintTap class >> defaultSamplerAddress [
+	^ 'ws://localhost:8801' asUrl
 ]
 
 { #category : #accessing }
@@ -106,9 +106,94 @@ PintTap class >> on: aFileReference [
 		yourself
 ]
 
+{ #category : #menus }
+PintTap class >> pintGlasMenuOn: aBuilder [
+	<worldMenu>
+	(aBuilder item: #PintGlas)
+		label: 'PintGlas';
+		parent: #Pharo;
+		withSeparatorAfter;
+		order: 2;
+		with: [ (aBuilder item: #PintGlasStart)
+				action: [ self beamUp ];
+				label: 'beam up';
+				parent: #PintGlas;
+				order: 1;
+				help: 'Send a snapshot to the PintGlas server';
+				withSeparatorAfter.
+			(aBuilder item: #PintGlasStart)
+				action: [ self start ];
+				label: 'live';
+				parent: #PintGlas;
+				order: 2;
+				help: 'Make this session accessible from PintGlas server'.
+			(aBuilder item: #PintGlasStop)
+				action: [ self stop ];
+				label: 'off';
+				parent: #PintGlas;
+				order: 3;
+				help: 'Disconnect PintGlas server' ]
+]
+
+{ #category : #menus }
+PintTap class >> pintGlasSettingsOn: aBuilder [
+	<systemsettings>
+	(aBuilder group: #PintGlas)
+		label: 'PintGlas';
+		description: 'PintGlas related settings';
+		noOrdering;
+		with: [ (aBuilder setting: #samplerHost)
+				label: 'Local server address';
+				noOrdering;
+				description: 'The local (Sampler) PintGlas server.'.
+				(aBuilder setting: #samplerPort)
+				label: 'Local server port number';
+				noOrdering;
+				description: 'The port number of local (Sampler) PintGlas server.'  ]
+]
+
 { #category : #accessing }
 PintTap class >> protocolVersion [
 	^ #(0 0 1) copy
+]
+
+{ #category : #accessing }
+PintTap class >> samplerAddress [
+	^ SamplerAddress ifNil: [ SamplerAddress := self defaultSamplerAddress ]
+]
+
+{ #category : #accessing }
+PintTap class >> samplerAddress: aZnUrl [
+	SamplerAddress := aZnUrl
+]
+
+{ #category : #accessing }
+PintTap class >> samplerHost [
+	^ self samplerAddress host
+]
+
+{ #category : #accessing }
+PintTap class >> samplerHost: aString [
+	self samplerAddress host: aString
+]
+
+{ #category : #accessing }
+PintTap class >> samplerPort [
+	^ self samplerAddress port
+]
+
+{ #category : #accessing }
+PintTap class >> samplerPort: aString [
+	(aString allSatisfy: [ :char | char isDigit ])
+		ifTrue: [ self samplerAddress port: aString asInteger ]
+]
+
+{ #category : #menus }
+PintTap class >> showSettingBrowser [
+	<script: 'PintTap showSettingBrowser'>
+	SettingBrowser new
+		changePackageSet: {(RPackageOrganizer default packageNamed: #'PintGlas-Tap')};
+		open
 ]
 
 { #category : #'startup - shutdown' }
@@ -121,7 +206,7 @@ PintTap class >> start [
 	<script: 'PintTap start'>
 	self stop.
 	SamplerCommunicationProcess := [ | webSocket |
-	webSocket := ZnWebSocket to: 'ws://localhost:8801'.
+	webSocket := ZnWebSocket to: self samplerAddress.
 	[ | tapName |
 	webSocket
 		sendMessage:
@@ -136,14 +221,13 @@ PintTap class >> start [
 						at: 'action' put: 'wait';
 						at: 'imageId' put: self imageId;
 						yourself)).
+	UIManager default inform: 'Connected to the PintGlas server.'.
 	tapName := nil.
 	[ [ tapName := webSocket readMessage ]
 		on: ConnectionTimedOut
 		do: [ nil ].
 	tapName isNil ] whileTrue.
-	Transcript
-		cr;
-		show: 'got a request for beam up.'.
+	UIManager default inform: 'Got a request for beam up.'.
 	self beamUp ]
 		ensure: [ webSocket ifNotNil: [ webSocket close ] ] ]
 		forkAt: Processor userBackgroundPriority
@@ -155,11 +239,12 @@ PintTap class >> stop [
 	SamplerCommunicationProcess
 		ifNotNil: [ (SamplerCommunicationProcess isTerminated
 				or: [ SamplerCommunicationProcess isTerminating ])
-				ifFalse: [ SamplerCommunicationProcess terminate ] ].
+				ifFalse: [ SamplerCommunicationProcess terminate.
+					UIManager default inform: 'Disconnected.' ] ].
 	SamplerCommunicationProcess := nil
 ]
 
-{ #category : #accessing }
+{ #category : #utilities }
 PintTap class >> updateImageId [
 	ImageId := self imageId , '-'
 		,
@@ -217,6 +302,18 @@ PintTap >> createZipAndDo: aBlock [
 			zip
 				addFile: Smalltalk sourcesFile fullName
 				as: self path basename , '/' , Smalltalk sourcesFile basename.
+			FileLocator workingDirectory / 'meta-inf.ston'
+				in: [ :ref | 
+					ref exists
+						ifTrue: [ zip
+								addFile: ref fullName
+								as: self path basename , '/' , ref basename ] ].
+			FileLocator workingDirectory / 'pharo.version'
+				in: [ :ref | 
+					ref exists
+						ifTrue: [ zip
+								addFile: ref fullName
+								as: self path basename , '/' , ref basename ] ].
 			FileLocator localDirectory allChildren
 				do: [ :file | 
 					file isFile
