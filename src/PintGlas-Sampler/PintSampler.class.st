@@ -60,19 +60,23 @@ PintSampler >> acceptBeam: tapInfo on: aWebSocket [
 
 { #category : #'request handling' }
 PintSampler >> acceptWait: tapInfo on: aWebSocket [
-	| tapName sem |
+	| tapName tapKey sem |
 	tapName := tapInfo at: 'name'.
-	sem := self
-		registerTap:
-			{(tapInfo at: 'host').
-			(tapInfo at: 'path').
-			(tapInfo at: 'name')}.
-	[ sem wait.
+	tapKey := {(tapInfo at: 'host').
+	(tapInfo at: 'path').
+	(tapInfo at: 'name')}.
+	sem := self registerTap: tapKey.
+	[ [ [ 60 seconds wait.
+	aWebSocket ping ] repeat ]
+		on: Error
+		do: [ :ex | self unregisterTap: tapKey ] ]
+		forkAt: Processor userBackgroundPriority.
+	[ [ sem wait.
 	Transcript
 		cr;
 		show: 'sending ';
 		show: tapName.
-	aWebSocket sendMessage: tapName ]
+	aWebSocket sendMessage: tapName ] repeat ]
 		ensure: [ self unregisterTap: tapName ]
 ]
 
@@ -118,8 +122,7 @@ PintSampler >> registerTap: aString [
 
 { #category : #'accessing - taps' }
 PintSampler >> retrieveTap: anArray ifAbsent: errorBlock [
-	(tapValves at: anArray ifAbsent: [ ^ errorBlock value ]) signal.
-	tapValves removeKey: anArray
+	(tapValves at: anArray ifAbsent: [ ^ errorBlock value ]) signal
 ]
 
 { #category : #accessing }
