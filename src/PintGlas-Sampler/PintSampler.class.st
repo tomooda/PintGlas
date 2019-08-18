@@ -43,6 +43,39 @@ PintSampler class >> stop [
 		stop
 ]
 
+{ #category : #'request handling' }
+PintSampler >> acceptBeam: tapInfo on: aWebSocket [
+	| ref |
+	ref := self fileReferenceForTap: tapInfo.
+	ref ensureDelete.
+	Transcript
+		cr;
+		show: 'receiving a file to ';
+		show: ref printString.
+	aWebSocket readMessageToFile: ref.
+	Transcript
+		cr;
+		show: 'done'
+]
+
+{ #category : #'request handling' }
+PintSampler >> acceptWait: tapInfo on: aWebSocket [
+	| tapName sem |
+	tapName := tapInfo at: 'name'.
+	sem := self
+		registerTap:
+			{(tapInfo at: 'host').
+			(tapInfo at: 'path').
+			(tapInfo at: 'name')}.
+	[ sem wait.
+	Transcript
+		cr;
+		show: 'sending ';
+		show: tapName.
+	aWebSocket sendMessage: tapName ]
+		ensure: [ self unregisterTap: tapName ]
+]
+
 { #category : #defaults }
 PintSampler >> defaultSamplerDirectory [
 	^ (FileLocator documents / 'PintGlas') ensureCreateDirectory
@@ -51,9 +84,13 @@ PintSampler >> defaultSamplerDirectory [
 { #category : #accessing }
 PintSampler >> fileReferenceForTap: aDictionary [
 	| host path name |
-	host := aDictionary at: 'host'.
-	path := aDictionary at: 'path'.
-	name := aDictionary at: 'name'.
+	aDictionary isArray
+		ifTrue: [ host := aDictionary first.
+			path := aDictionary second.
+			name := aDictionary third ]
+		ifFalse: [ host := aDictionary at: 'host'.
+			path := aDictionary at: 'path'.
+			name := aDictionary at: 'name' ].
 	^ (self samplerDirectory / host / (self hashPath: path) / name)
 		ensureCreateDirectory
 		/
@@ -81,11 +118,8 @@ PintSampler >> registerTap: aString [
 
 { #category : #'accessing - taps' }
 PintSampler >> retrieveTap: anArray ifAbsent: errorBlock [
-	(tapValves at: anArray ifAbsent: [ ^ errorBlock value ])
-		signal;
-		wait.
-	tapValves removeKey: anArray.
-	^ self fileReferenceForTap: anArray
+	(tapValves at: anArray ifAbsent: [ ^ errorBlock value ]) signal.
+	tapValves removeKey: anArray
 ]
 
 { #category : #accessing }
@@ -102,15 +136,20 @@ PintSampler >> unregisterTap: anArray [
 
 { #category : #'request handling' }
 PintSampler >> value: aWebSocket [
-	| tapInfo tapName ref sem |
+	| tapInfo action |
 	tapInfo := STONJSON fromString: aWebSocket readMessage.
-	tapName := tapInfo at: 'name'.
-	sem := self registerTap: {tapInfo at: 'host' . tapInfo at: 'path' . tapInfo at: 'name'}.
-	[ sem wait.
-	aWebSocket sendMessage: tapName.
-	ref := self fileReferenceForTap: tapInfo.
-	ref ensureDelete.
-	aWebSocket readMessageToFile: ref.
-	sem signal ]
-		ensure: [ self unregisterTap: tapName ]
+	action := tapInfo
+		at: 'action'
+		ifAbsent: [ Transcript
+				cr;
+				show: 'action not specified'.
+			^ self ].
+	action = 'beam'
+		ifTrue: [ ^ self acceptBeam: tapInfo on: aWebSocket ].
+	action = 'wait'
+		ifTrue: [ ^ self acceptWait: tapInfo on: aWebSocket ].
+	Transcript
+		cr;
+		show: 'Unknown action: ';
+		show: action
 ]
