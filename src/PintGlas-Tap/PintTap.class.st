@@ -22,6 +22,11 @@ PintTap class >> askToBeamUp [
 ]
 
 { #category : #accessing }
+PintTap class >> availableSchemes [
+	^ #('ws' 'wss')
+]
+
+{ #category : #accessing }
 PintTap class >> baseDirectory [
 	^ (FileLocator documents / 'PintGlas' / 'images')
 		ensureCreateDirectory;
@@ -66,7 +71,7 @@ PintTap class >> beamUp [
 
 { #category : #defaults }
 PintTap class >> defaultSamplerAddress [
-	^ 'ws://localhost:8801' asUrl
+	^ 'ws://localhost:8801/taps/' asUrl
 ]
 
 { #category : #accessing }
@@ -119,7 +124,15 @@ PintTap class >> pintGlasMenuOn: aBuilder [
 		label: 'PintGlas';
 		parent: #Pharo;
 		order: 10;
-		with: [ (aBuilder item: #PintGlasStart)
+		with: [ (aBuilder item: #PintGlasSettings)
+				action: [ self showSettingBrowser ];
+				label: 'settings';
+				parent: #PintGlas;
+				order: 0;
+				help: 'Opens settings on PintGlas';
+				iconName: #smallConfigurationIcon;
+				withSeparatorAfter.
+			(aBuilder item: #PintGlasStart)
 				action: [ self beamUp ];
 				label: 'beam up';
 				parent: #PintGlas;
@@ -128,7 +141,7 @@ PintTap class >> pintGlasMenuOn: aBuilder [
 				withSeparatorAfter.
 			(aBuilder item: #PintGlasStart)
 				action: [ self start ];
-				precondition: [ self isLive not];
+				precondition: [ self isLive not ];
 				label: 'live';
 				parent: #PintGlas;
 				order: 2;
@@ -149,14 +162,19 @@ PintTap class >> pintGlasSettingsOn: aBuilder [
 		label: 'PintGlas';
 		description: 'PintGlas related settings';
 		noOrdering;
-		with: [ (aBuilder setting: #samplerHost)
+		with: [ (aBuilder pickOne: #samplerScheme)
+				domainValues: self availableSchemes;
+				label: 'Local server protocol';
+				noOrdering;
+				description: 'Select a websocket protocol for the local server'.
+			(aBuilder setting: #samplerHost)
 				label: 'Local server address';
 				noOrdering;
 				description: 'The local (Sampler) PintGlas server.'.
-				(aBuilder setting: #samplerPort)
+			(aBuilder setting: #samplerPort)
 				label: 'Local server port number';
 				noOrdering;
-				description: 'The port number of local (Sampler) PintGlas server.'  ]
+				description: 'The port number of local (Sampler) PintGlas server.' ]
 ]
 
 { #category : #accessing }
@@ -193,6 +211,18 @@ PintTap class >> samplerPort [
 PintTap class >> samplerPort: aString [
 	(aString allSatisfy: [ :char | char isDigit ])
 		ifTrue: [ self samplerAddress port: aString asInteger ]
+]
+
+{ #category : #accessing }
+PintTap class >> samplerScheme [
+	^ self samplerAddress scheme
+]
+
+{ #category : #accessing }
+PintTap class >> samplerScheme: aString [
+	(self availableSchemes includes: aString)
+		ifFalse: [ ^ self ].
+	self samplerAddress scheme: aString
 ]
 
 { #category : #menus }
