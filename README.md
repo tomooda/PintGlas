@@ -19,4 +19,5 @@ Todos:
 * two-tiers server (local server behind a firewall and public server)
 
 ## demo
-https://www.youtube.com/watch?v=tnI0FrXPbXQ&feature=youtu.be
+
+[![PintGlas demo](https://img.youtube.com/vi/tnI0FrXPbXQ/1.jpg)](https://www.youtube.com/watch?v=tnI0FrXPbXQ)
