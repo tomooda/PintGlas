@@ -5,6 +5,7 @@ Class {
 		'path'
 	],
 	#classVars : [
+		'CustomTapName',
 		'ImageId',
 		'SamplerAddress',
 		'SamplerCommunicationProcess'
@@ -67,6 +68,18 @@ PintTap class >> beamUp [
 			UIManager default inform: 'Beam up completed.' ]
 				ensure: [ webSocket close ] ] ]
 		forkAt: Processor userBackgroundPriority
+]
+
+{ #category : #accessing }
+PintTap class >> customTapName [
+	^ CustomTapName ifNil: [ String new ]
+]
+
+{ #category : #accessing }
+PintTap class >> customTapName: aString [
+	CustomTapName := aString trim
+		ifEmpty: [ nil ]
+		ifNotEmpty: [ :tapName | tapName ]
 ]
 
 { #category : #defaults }
@@ -174,7 +187,15 @@ PintTap class >> pintGlasSettingsOn: aBuilder [
 			(aBuilder setting: #samplerPort)
 				label: 'Local server port number';
 				noOrdering;
-				description: 'The port number of local (Sampler) PintGlas server.' ]
+				description: 'The port number of local (Sampler) PintGlas server.'.
+			(aBuilder setting: #usesCustomTapName)
+				label: 'Use custom image name';
+				noOrdering;
+				description:
+					'If checked then the you will be able to set an image name for PintTap. If unchecked, then the actual image name will be used.';
+				with: [ (aBuilder setting: #customTapName)
+						label: 'Name';
+						description: 'The image name to be labeled on your image' ] ]
 ]
 
 { #category : #accessing }
@@ -260,7 +281,7 @@ PintTap class >> start [
 						at: 'host' put: NetNameResolver localHostName;
 						at: 'path'
 							put: FileLocator imageDirectory absolutePath pathString;
-						at: 'name' put: Smalltalk imageFile withoutExtension basename;
+						at: 'name' put: self tapName;
 						at: 'action' put: 'wait';
 						at: 'imageId' put: self imageId;
 						yourself)).
@@ -293,6 +314,18 @@ PintTap class >> stop [
 	SamplerCommunicationProcess := nil
 ]
 
+{ #category : #accessing }
+PintTap class >> tapName [
+	<script: 'PintTap tapName inspect'>
+	^ CustomTapName
+		ifNil: [ Smalltalk imageFile withoutExtension basename ]
+]
+
+{ #category : #accessing }
+PintTap class >> tapName: aString [
+	CustomTapName := aString
+]
+
 { #category : #utilities }
 PintTap class >> updateImageId [
 	ImageId := self imageId , '-'
@@ -300,6 +333,18 @@ PintTap class >> updateImageId [
 			((SHA1 hashMessage: Time microsecondClockValue printString) hex
 				copyFrom: 1
 				to: 4)
+]
+
+{ #category : #accessing }
+PintTap class >> usesCustomTapName [
+	^ CustomTapName notNil
+]
+
+{ #category : #accessing }
+PintTap class >> usesCustomTapName: aBoolean [
+	CustomTapName := aBoolean
+		ifTrue: [ self tapName ]
+		ifFalse: [ nil ]
 ]
 
 { #category : #snapshotting }
