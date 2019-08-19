@@ -67,7 +67,7 @@ PintTap class >> beamUp [
 			webSocket sendFile: ref.
 			UIManager default inform: 'Beam up completed.' ]
 				ensure: [ webSocket close ] ] ]
-		forkAt: Processor userBackgroundPriority
+		forkAt: Processor userSchedulingPriority
 ]
 
 { #category : #accessing }
