@@ -154,7 +154,7 @@ PintTap class >> pintGlasMenuOn: aBuilder [
 				withSeparatorAfter.
 			(aBuilder item: #PintGlasStart)
 				action: [ self start ];
-				precondition: [ self isLive not ];
+				enabledBlock: [ self isLive not ];
 				label: 'live';
 				parent: #PintGlas;
 				order: 2;
@@ -162,7 +162,7 @@ PintTap class >> pintGlasMenuOn: aBuilder [
 			(aBuilder item: #PintGlasStop)
 				action: [ self stop ];
 				label: 'off';
-				precondition: [ self isLive ];
+				enabledBlock: [ self isLive ];
 				parent: #PintGlas;
 				order: 3;
 				help: 'Disconnect PintGlas server' ]
