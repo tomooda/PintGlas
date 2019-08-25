@@ -186,7 +186,7 @@ PintSampler >> indexHtml: aZnRequest [
 						nextPutAll: array second;
 						nextPutAll: '","';
 						nextPutAll: array third;
-						nextPutAll: '")''>Beam up</div></td></tr>';
+						nextPutAll: '")''>🚰</div></td></tr>';
 						cr ].
 			stream
 				nextPutAll: '</table>';
@@ -223,11 +223,10 @@ PintSampler >> indexHtml: aZnRequest [
 						nextPutAll: (glas at: 'name');
 						nextPutAll: '</td><td>';
 						nextPutAll:
-							(now - (glas at: 'date') asDateAndTime roundTo: 1 second)
-								humanReadablePrintString;
+							(self printAge: (glas at: 'date') asDateAndTime);
 						nextPutAll: '</td><td><a href="download/';
 						nextPutAll: (glas at: 'glas-id');
-						nextPutAll: '">Download</a></td></tr>';
+						nextPutAll: '">🍺</a></td></tr>';
 						cr ].
 			stream
 				nextPutAll: '</table>';
@@ -251,6 +250,19 @@ PintSampler >> initialize [
 { #category : #'request handling - tap' }
 PintSampler >> liveKeys [
 	^ tapValves keys asSortedCollection
+]
+
+{ #category : #'request handling - browser' }
+PintSampler >> printAge: aDateAndTime [
+	| segments |
+	segments := (DateAndTime now - aDateAndTime roundTo: 1 minute)
+		humanReadablePrintString substrings.
+	segments isEmpty
+		ifTrue: [ ^ String new ].
+	segments size = 1
+		ifTrue: [ ^ segments first ].
+	^ String space
+		join: (segments copyFrom: 1 to: (segments size min: 4))
 ]
 
 { #category : #'accessing - glasses' }
