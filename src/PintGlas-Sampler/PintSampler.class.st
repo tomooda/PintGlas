@@ -91,7 +91,7 @@ PintSampler >> acceptWait: tapInfo on: aWebSocket [
 	(tapInfo at: 'path').
 	(tapInfo at: 'name')}.
 	sem := self registerTap: tapKey.
-	[ [ [ 60 seconds wait.
+	[ [ [ 1 seconds wait.
 	aWebSocket ping ] repeat ]
 		on: Error
 		do: [ :ex | self unregisterTap: tapKey ] ]
@@ -148,8 +148,9 @@ PintSampler >> hash: anInteger [
 
 { #category : #'request handling - browser' }
 PintSampler >> indexHtml: aZnRequest [
-	| query html |
+	| query html now |
 	query := aZnRequest url query ifNil: [ Dictionary new ].
+	now := DateAndTime now.
 	html := String
 		streamContents: [ :stream | 
 			stream
@@ -186,7 +187,6 @@ PintSampler >> indexHtml: aZnRequest [
 						nextPutAll: '","';
 						nextPutAll: array third;
 						nextPutAll: '")''>Beam up</div></td></tr>';
-						
 						cr ].
 			stream
 				nextPutAll: '</table>';
@@ -209,7 +209,7 @@ PintSampler >> indexHtml: aZnRequest [
 				cr.
 			stream
 				nextPutAll: '<table border="1">';
-				nextPutAll: '<tr><th>host</th><th>path</th><th>name</th><th>date</th></tr>';
+				nextPutAll: '<tr><th>host</th><th>path</th><th>name</th><th>age</th></tr>';
 				cr.
 			self
 				query: query
@@ -222,7 +222,9 @@ PintSampler >> indexHtml: aZnRequest [
 						nextPutAll: '</td><td>';
 						nextPutAll: (glas at: 'name');
 						nextPutAll: '</td><td>';
-						nextPutAll: (glas at: 'date');
+						nextPutAll:
+							(now - (glas at: 'date') asDateAndTime roundTo: 1 second)
+								humanReadablePrintString;
 						nextPutAll: '</td><td><a href="download/';
 						nextPutAll: (glas at: 'glas-id');
 						nextPutAll: '">Download</a></td></tr>';
