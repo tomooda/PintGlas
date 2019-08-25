@@ -162,12 +162,12 @@ PintSampler >> indexHtml: aZnRequest [
 				nextPutAll: self uploaderScript;
 				cr.
 			stream
-				nextPutAll: '<h3>PintGlas Sampler</h3>';
+				nextPutAll: '<h1>PintGlas Sampler</h1>';
 				cr.
 			stream
-				nextPutAll: '<h4>Live PintGlasses</h4>';
+				nextPutAll: '<h2>Live PintGlasses</h2>';
 				cr;
-				nextPutAll: '<table border="1">';
+				nextPutAll: '<table border="0">';
 				cr;
 				nextPutAll: '<tr><th>host</th><th>path</th><th>name</th>';
 				cr.
@@ -180,7 +180,7 @@ PintSampler >> indexHtml: aZnRequest [
 						nextPutAll: array second;
 						nextPutAll: '</td><td>';
 						nextPutAll: array third;
-						nextPutAll: '</td><td><div onclick=''PintGlas.upload("';
+						nextPutAll: '</td><td><div style="mouse: pointer;" onclick=''PintGlas.upload("';
 						nextPutAll: array first;
 						nextPutAll: '","';
 						nextPutAll: array second;
@@ -192,7 +192,7 @@ PintSampler >> indexHtml: aZnRequest [
 				nextPutAll: '</table>';
 				cr.
 			stream
-				nextPutAll: '<h4>Stock PintGlasses</h4>';
+				nextPutAll: '<h2>Stock PintGlasses</h2>';
 				cr;
 				nextPutAll: '<form action="/" method="get">';
 				nextPutAll: '<div><label>host</label><input type="text" name="host" value="';
@@ -208,7 +208,7 @@ PintSampler >> indexHtml: aZnRequest [
 				nextPutAll: '</form>';
 				cr.
 			stream
-				nextPutAll: '<table border="1">';
+				nextPutAll: '<table border="0">';
 				nextPutAll: '<tr><th>host</th><th>path</th><th>name</th><th>age</th></tr>';
 				cr.
 			self
@@ -224,7 +224,7 @@ PintSampler >> indexHtml: aZnRequest [
 						nextPutAll: '</td><td>';
 						nextPutAll:
 							(self printAge: (glas at: 'date') asDateAndTime);
-						nextPutAll: '</td><td><a href="download/';
+						nextPutAll: '</td><td><a style="text-decoration-line: none;" href="download/';
 						nextPutAll: (glas at: 'glas-id');
 						nextPutAll: '">🍺</a></td></tr>';
 						cr ].
