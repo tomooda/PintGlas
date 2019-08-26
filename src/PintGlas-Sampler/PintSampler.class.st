@@ -249,7 +249,12 @@ PintSampler >> initialize [
 
 { #category : #'request handling - tap' }
 PintSampler >> liveKeys [
-	^ tapValves keys asSortedCollection
+	^ tapValves keys
+		asSortedCollection: [ :less :more | 
+			less first < more first
+				or: [ less first = more first
+						and: [ less second < more second
+								or: [ less second = more second and: [ less third <= more third ] ] ] ] ]
 ]
 
 { #category : #'request handling - browser' }
