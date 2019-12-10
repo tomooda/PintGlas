@@ -11,9 +11,11 @@ BaselineOfPintGlas >> baseline: spec [
 		for: #common
 		do: [ spec
 				baseline: 'ZincHTTPComponents'
-				with: [ spec
+					with: [ spec
 						repository: 'github://svenvc/zinc/repository';
-						loads: 'WebSocket' ].
+						loads: 'WebSocket' ];
+				baseline: 'PharoLauncher'
+					with: [ spec repository: 'github://pharo-project/pharo-launcher/src' ].
 			spec
 				package: 'PintGlas-Common'
 					with: [ spec requires: 'ZincHTTPComponents' ];
@@ -21,9 +23,11 @@ BaselineOfPintGlas >> baseline: spec [
 					with: [ spec requires: #('PintGlas-Common' 'ZincHTTPComponents') ];
 				package: 'PintGlas-Sampler'
 					with: [ spec requires: #('PintGlas-Common' 'ZincHTTPComponents') ];
-				yourself.
+				package: 'PintGlas-Launcher'
+					with: [ spec requires: 'pharo-launcher' ].
 			spec
 				group: 'default' with: #('Tap');
 				group: 'Tap' with: #('PintGlas-Tap');
-				group: 'Sampler' with: #('PintGlas-Sampler') ]
+				group: 'Sampler' with: #('PintGlas-Sampler');
+				group: 'Launcher' with: #('PintGlas-Launcher') ]
 ]
