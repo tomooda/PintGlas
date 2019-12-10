@@ -135,8 +135,7 @@ PintTap class >> pintGlasMenuOn: aBuilder [
 	<worldMenu>
 	(aBuilder item: #PintGlas)
 		label: 'PintGlas';
-		parent: #Pharo;
-		order: 10;
+		order: 0.1;
 		with: [ (aBuilder item: #PintGlasSettings)
 				action: [ self showSettingBrowser ];
 				label: 'settings';
