@@ -39,6 +39,8 @@ PintSampler class >> server [
 						map: 'download' to: [ :request | handler download: request ];
 						map: 'upload' to: [ :request | handler upload: request ];
 						map: 'taps' to: (ZnWebSocketDelegate handler: handler);
+						map: 'launcher'
+							to: [ :request | handler templateSource: request ];
 						yourself);
 				yourself ]
 ]
@@ -107,7 +109,8 @@ PintSampler >> acceptWait: tapInfo on: aWebSocket [
 
 { #category : #'accessing - glasses' }
 PintSampler >> addGlass: aTapInfo [
-	^ glasses add: aTapInfo
+	glasses add: aTapInfo.
+	^ aTapInfo
 ]
 
 { #category : #defaults }
@@ -137,6 +140,11 @@ PintSampler >> download: aZnRequest [
 { #category : #'accessing - glasses' }
 PintSampler >> glasses [
 	^ glasses
+]
+
+{ #category : #enumerating }
+PintSampler >> glassesDo: aBlock [
+	glasses do: aBlock
 ]
 
 { #category : #accessing }
@@ -270,7 +278,7 @@ PintSampler >> printAge: aDateAndTime [
 		join: (segments copyFrom: 1 to: (segments size min: 4))
 ]
 
-{ #category : #'accessing - glasses' }
+{ #category : #enumerating }
 PintSampler >> query: aDictionary glassesDo: aBlock [
 	glasses
 		do: [ :glas | 
@@ -278,7 +286,7 @@ PintSampler >> query: aDictionary glassesDo: aBlock [
 				ifTrue: [ aBlock value: glas ] ]
 ]
 
-{ #category : #'accessing - glasses' }
+{ #category : #testing }
 PintSampler >> query: queryDictionary matches: glasDictionary [
 	queryDictionary
 		keysAndValuesDo: [ :key :value | 
@@ -304,6 +312,12 @@ PintSampler >> samplerDirectory [
 	^ (samplerDirectory
 		ifNil: [ samplerDirectory := self defaultSamplerDirectory ])
 		ensureCreateDirectory
+]
+
+{ #category : #'request handling - launcher' }
+PintSampler >> templateSource: aZnRequest [
+	^ ZnResponse
+		ok: (ZnEntity json: (STONJSON toString: glasses asArray))
 ]
 
 { #category : #'accessing - taps' }
