@@ -289,7 +289,7 @@ PintTap class >> start [
 		runWith: [ :tapName | 
 			UIManager default inform: 'Got a request for beam up.'.
 			self beamUp ] ]
-		on: ConnectionClosed
+		on: NetworkError
 		do: [ :ex | UIManager default inform: 'PintGlas disconnected.' ] ]
 		ensure: [ [ webSocket close ]
 				on: Error
