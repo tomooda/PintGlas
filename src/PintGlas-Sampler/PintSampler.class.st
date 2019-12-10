@@ -39,6 +39,8 @@ PintSampler class >> server [
 						map: 'download' to: [ :request | handler download: request ];
 						map: 'upload' to: [ :request | handler upload: request ];
 						map: 'taps' to: (ZnWebSocketDelegate handler: handler);
+						map: 'launcher'
+							to: [ :request | handler templateSource: request ];
 						yourself);
 				yourself ]
 ]
@@ -91,7 +93,7 @@ PintSampler >> acceptWait: tapInfo on: aWebSocket [
 	(tapInfo at: 'path').
 	(tapInfo at: 'name')}.
 	sem := self registerTap: tapKey.
-	[ [ [ 60 seconds wait.
+	[ [ [ 1 seconds wait.
 	aWebSocket ping ] repeat ]
 		on: Error
 		do: [ :ex | self unregisterTap: tapKey ] ]
@@ -107,7 +109,8 @@ PintSampler >> acceptWait: tapInfo on: aWebSocket [
 
 { #category : #'accessing - glasses' }
 PintSampler >> addGlass: aTapInfo [
-	^ glasses add: aTapInfo
+	glasses add: aTapInfo.
+	^ aTapInfo
 ]
 
 { #category : #defaults }
@@ -139,6 +142,11 @@ PintSampler >> glasses [
 	^ glasses
 ]
 
+{ #category : #enumerating }
+PintSampler >> glassesDo: aBlock [
+	glasses do: aBlock
+]
+
 { #category : #accessing }
 PintSampler >> hash: anInteger [
 	^ (SHA1 hashMessage: Time microsecondClockValue asString) hex
@@ -148,8 +156,9 @@ PintSampler >> hash: anInteger [
 
 { #category : #'request handling - browser' }
 PintSampler >> indexHtml: aZnRequest [
-	| query html |
+	| query html now |
 	query := aZnRequest url query ifNil: [ Dictionary new ].
+	now := DateAndTime now.
 	html := String
 		streamContents: [ :stream | 
 			stream
@@ -161,12 +170,12 @@ PintSampler >> indexHtml: aZnRequest [
 				nextPutAll: self uploaderScript;
 				cr.
 			stream
-				nextPutAll: '<h3>PintGlas Sampler</h3>';
+				nextPutAll: '<h1>PintGlas Sampler</h1>';
 				cr.
 			stream
-				nextPutAll: '<h4>Live PintGlasses</h4>';
+				nextPutAll: '<h2>Live PintGlasses</h2>';
 				cr;
-				nextPutAll: '<table border="1">';
+				nextPutAll: '<table border="0">';
 				cr;
 				nextPutAll: '<tr><th>host</th><th>path</th><th>name</th>';
 				cr.
@@ -179,20 +188,19 @@ PintSampler >> indexHtml: aZnRequest [
 						nextPutAll: array second;
 						nextPutAll: '</td><td>';
 						nextPutAll: array third;
-						nextPutAll: '</td><td><div onclick=''PintGlas.upload("';
+						nextPutAll: '</td><td><div style="mouse: pointer;" onclick=''PintGlas.upload("';
 						nextPutAll: array first;
 						nextPutAll: '","';
 						nextPutAll: array second;
 						nextPutAll: '","';
 						nextPutAll: array third;
-						nextPutAll: '")''>Beam up</div></td></tr>';
-						
+						nextPutAll: '")''>🚰</div></td></tr>';
 						cr ].
 			stream
 				nextPutAll: '</table>';
 				cr.
 			stream
-				nextPutAll: '<h4>Stock PintGlasses</h4>';
+				nextPutAll: '<h2>Stock PintGlasses</h2>';
 				cr;
 				nextPutAll: '<form action="/" method="get">';
 				nextPutAll: '<div><label>host</label><input type="text" name="host" value="';
@@ -208,8 +216,8 @@ PintSampler >> indexHtml: aZnRequest [
 				nextPutAll: '</form>';
 				cr.
 			stream
-				nextPutAll: '<table border="1">';
-				nextPutAll: '<tr><th>host</th><th>path</th><th>name</th><th>date</th></tr>';
+				nextPutAll: '<table border="0">';
+				nextPutAll: '<tr><th>host</th><th>path</th><th>name</th><th>age</th></tr>';
 				cr.
 			self
 				query: query
@@ -222,10 +230,11 @@ PintSampler >> indexHtml: aZnRequest [
 						nextPutAll: '</td><td>';
 						nextPutAll: (glas at: 'name');
 						nextPutAll: '</td><td>';
-						nextPutAll: (glas at: 'date');
-						nextPutAll: '</td><td><a href="download/';
+						nextPutAll:
+							(self printAge: (glas at: 'date') asDateAndTime);
+						nextPutAll: '</td><td><a style="text-decoration-line: none;" href="download/';
 						nextPutAll: (glas at: 'glas-id');
-						nextPutAll: '">Download</a></td></tr>';
+						nextPutAll: '">🍺</a></td></tr>';
 						cr ].
 			stream
 				nextPutAll: '</table>';
@@ -248,10 +257,28 @@ PintSampler >> initialize [
 
 { #category : #'request handling - tap' }
 PintSampler >> liveKeys [
-	^ tapValves keys asSortedCollection
+	^ tapValves keys
+		asSortedCollection: [ :less :more | 
+			less first < more first
+				or: [ less first = more first
+						and: [ less second < more second
+								or: [ less second = more second and: [ less third <= more third ] ] ] ] ]
 ]
 
-{ #category : #'accessing - glasses' }
+{ #category : #'request handling - browser' }
+PintSampler >> printAge: aDateAndTime [
+	| segments |
+	segments := (DateAndTime now - aDateAndTime roundTo: 1 minute)
+		humanReadablePrintString substrings.
+	segments isEmpty
+		ifTrue: [ ^ String new ].
+	segments size = 1
+		ifTrue: [ ^ segments first ].
+	^ String space
+		join: (segments copyFrom: 1 to: (segments size min: 4))
+]
+
+{ #category : #enumerating }
 PintSampler >> query: aDictionary glassesDo: aBlock [
 	glasses
 		do: [ :glas | 
@@ -259,7 +286,7 @@ PintSampler >> query: aDictionary glassesDo: aBlock [
 				ifTrue: [ aBlock value: glas ] ]
 ]
 
-{ #category : #'accessing - glasses' }
+{ #category : #testing }
 PintSampler >> query: queryDictionary matches: glasDictionary [
 	queryDictionary
 		keysAndValuesDo: [ :key :value | 
@@ -285,6 +312,12 @@ PintSampler >> samplerDirectory [
 	^ (samplerDirectory
 		ifNil: [ samplerDirectory := self defaultSamplerDirectory ])
 		ensureCreateDirectory
+]
+
+{ #category : #'request handling - launcher' }
+PintSampler >> templateSource: aZnRequest [
+	^ ZnResponse
+		ok: (ZnEntity json: (STONJSON toString: glasses asArray))
 ]
 
 { #category : #'accessing - taps' }
