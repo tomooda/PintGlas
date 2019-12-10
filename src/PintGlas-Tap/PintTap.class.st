@@ -271,8 +271,8 @@ PintTap class >> start [
 	<script: 'PintTap start'>
 	self stop.
 	SamplerCommunicationProcess := [ | webSocket |
-	webSocket := ZnWebSocket to: self samplerAddress.
-	[ [ webSocket
+	[ [ webSocket := ZnWebSocket to: self samplerAddress.
+	webSocket
 		sendMessage:
 			(STONJSON
 				toString:
