@@ -2,15 +2,23 @@ Class {
 	#name : #PintTemplateGroup,
 	#superclass : #PhLAbstractTemplateGroup,
 	#instVars : [
+		'name',
 		'url'
 	],
 	#category : #'PintGlas-Launcher'
 }
 
 { #category : #'instance creation' }
-PintTemplateGroup class >> url: aStringOrUrl [
+PintTemplateGroup class >> local [
+	<script: 'PintTemplateGroup local inspect'>
+	^ self name: 'Sampler at localhost' url: 'http://localhost:8801/'
+]
+
+{ #category : #'instance creation' }
+PintTemplateGroup class >> name: aString url: aStringOrUrl [
 	^ self new
-		url: aStringOrUrl asUrl;
+		name: aString asString;
+		url: aStringOrUrl asString;
 		yourself
 ]
 
@@ -29,7 +37,9 @@ PintTemplateGroup >> createTemplateFromTap: tapDictionary [
 		name:
 			(tapDictionary at: self prefixKey ifAbsent: [ '' ])
 				, (tapDictionary at: self nameKey ifAbsent: [ 'no name' ])
-		url: url / 'download' / (tapDictionary at: self glasIdKey ifAbsent: [ '' ])
+		url:
+			url asUrl / 'download'
+				/ (tapDictionary at: self glasIdKey ifAbsent: [ '' ])
 ]
 
 { #category : #private }
@@ -49,7 +59,12 @@ PintTemplateGroup >> imageIdSeparator [
 
 { #category : #accessing }
 PintTemplateGroup >> name [
-	^ 'PintGlas stock at ' , url asString
+	^ name
+]
+
+{ #category : #accessing }
+PintTemplateGroup >> name: aString [
+	name := aString asString
 ]
 
 { #category : #private }
@@ -73,14 +88,16 @@ PintTemplateGroup >> prefixStringAtLevel: anInteger [
 { #category : #accessing }
 PintTemplateGroup >> templatesAndGroups [
 	| taps levels |
-	taps := ((STONJSON
+	taps := [ ((STONJSON
 		fromStream:
 			(PhLDownloadManager default
-				downloadToPositionableStream: url / 'launcher'
+				downloadToPositionableStream: url asUrl / 'launcher'
 				mimeType: ZnMimeType applicationJson))
 		asSortedCollection:
 			[ :less :more | (less at: self imageIdKey) <= (more at: self imageIdKey) ])
-		asArray.
+		asArray ]
+		on: PhLDownloadError
+		do: [ :ex | ex return: Array new ].
 	levels := Dictionary new.
 	^ taps
 		do: [ :tap | 
@@ -105,5 +122,5 @@ PintTemplateGroup >> url [
 
 { #category : #accessing }
 PintTemplateGroup >> url: aStringOrUrl [
-	url := aStringOrUrl asUrl
+	url := aStringOrUrl asString
 ]
