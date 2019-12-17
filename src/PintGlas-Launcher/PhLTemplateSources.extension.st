@@ -1,7 +1,8 @@
 Extension { #name : #PhLTemplateSources }
 
 { #category : #'*PintGlas-Launcher' }
-PhLTemplateSources >> samplers [
+PhLTemplateSources class >> samplers [
+	<script: 'PhLTemplateSources samplers inspect'>
 	[ self samplersFile
 		readStreamDo: [ :stream | ^ STON fromStream: stream ] ]
 		on: FileException
@@ -9,6 +10,11 @@ PhLTemplateSources >> samplers [
 			PhLUIInformation new
 				message: 'Cannot fetch PintGlas samplers file: {1}'.
 			^ Array new ]
+]
+
+{ #category : #'*PintGlas-Launcher' }
+PhLTemplateSources >> samplers [
+	^ self class samplers
 ]
 
 { #category : #'*PintGlas-Launcher' }

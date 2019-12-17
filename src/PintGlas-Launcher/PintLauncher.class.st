@@ -11,6 +11,12 @@ PintLauncher class >> createLauncher [
 		createLauncherWithGroups: PhLTemplateGroupsBuilder buildWithSamplers
 ]
 
+{ #category : #private }
+PintLauncher >> commandClassesForTemplatesToolbar [
+	^ {PintLauncherOpenTapDialogCommand}
+		, super commandClassesForTemplatesToolbar
+]
+
 { #category : #initialization }
 PintLauncher >> setImageRepository: anImageRepository templateRepository: aTemplateRepository [
 	TemplateRepository := aTemplateRepository.

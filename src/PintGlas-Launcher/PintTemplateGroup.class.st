@@ -35,8 +35,7 @@ PintTemplateGroup >> ancestorsOf: aString [
 PintTemplateGroup >> createTemplateFromTap: tapDictionary [
 	^ PhLRemoteTemplate
 		name:
-			(tapDictionary at: self prefixKey ifAbsent: [ '' ])
-				, (tapDictionary at: self nameKey ifAbsent: [ 'no name' ])
+			(self printTapName: tapDictionary)
 		url:
 			url asUrl / 'download'
 				/ (tapDictionary at: self glasIdKey ifAbsent: [ '' ])
@@ -81,8 +80,32 @@ PintTemplateGroup >> prefixKey [
 PintTemplateGroup >> prefixStringAtLevel: anInteger [
 	^ anInteger <= 1
 		ifTrue: [ '' ]
-		ifFalse:
-			[ (String new: (anInteger - 1) * 4 - 2 withAll: Character space) , '+ ' ]
+		ifFalse: [ String new: (anInteger - 1) * 4 withAll: Character space ]
+]
+
+{ #category : #private }
+PintTemplateGroup >> printAge: aTap [
+	| segments |
+	segments := (DateAndTime now - (aTap at: 'date') asDateAndTime roundTo: 1 minute)
+		humanReadablePrintString substrings.
+	segments isEmpty
+		ifTrue: [ ^ String new ].
+	segments size = 1
+		ifTrue: [ ^ segments first ].
+	^ String space
+		join: (segments copyFrom: 1 to: (segments size min: 4))
+]
+
+{ #category : #private }
+PintTemplateGroup >> printTapName: tapDictionary [
+	^ String
+		streamContents: [ :stream | 
+			stream
+				nextPutAll: (tapDictionary at: self prefixKey ifAbsent: [ '' ]);
+				nextPutAll: (tapDictionary at: self nameKey ifAbsent: [ 'no name' ]);
+				nextPutAll: ' (';
+				nextPutAll: (self printAge: tapDictionary);
+				nextPut: $) ]
 ]
 
 { #category : #accessing }
@@ -91,7 +114,7 @@ PintTemplateGroup >> templatesAndGroups [
 	taps := [ ((STONJSON
 		fromStream:
 			(PhLDownloadManager default
-				downloadToPositionableStream: url asUrl / 'launcher'
+				downloadToPositionableStream: url asUrl / 'launcher-bottles'
 				mimeType: ZnMimeType applicationJson))
 		asSortedCollection:
 			[ :less :more | (less at: self imageIdKey) <= (more at: self imageIdKey) ])

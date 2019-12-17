@@ -39,8 +39,10 @@ PintSampler class >> server [
 						map: 'download' to: [ :request | handler download: request ];
 						map: 'upload' to: [ :request | handler upload: request ];
 						map: 'taps' to: (ZnWebSocketDelegate handler: handler);
-						map: 'launcher'
-							to: [ :request | handler templateSource: request ];
+						map: 'launcher-bottles'
+							to: [ :request | handler bottlesJson: request ];
+						map: 'launcher-taps'
+							to: [ :request | handler liveTapsJson: request ];
 						yourself);
 				yourself ]
 ]
@@ -111,6 +113,12 @@ PintSampler >> acceptWait: tapInfo on: aWebSocket [
 PintSampler >> addGlass: aTapInfo [
 	glasses add: aTapInfo.
 	^ aTapInfo
+]
+
+{ #category : #'request handling - launcher' }
+PintSampler >> bottlesJson: aZnRequest [
+	^ ZnResponse
+		ok: (ZnEntity json: (STONJSON toString: glasses asArray))
 ]
 
 { #category : #defaults }
@@ -265,6 +273,23 @@ PintSampler >> liveKeys [
 								or: [ less second = more second and: [ less third <= more third ] ] ] ] ]
 ]
 
+{ #category : #'request handling - launcher' }
+PintSampler >> liveTapsJson: aZnRequest [
+	^ ZnResponse
+		ok:
+			(ZnEntity
+				json:
+					(STONJSON
+						toString:
+							(self liveKeys asArray
+								collect: [ :triple | 
+									Dictionary new
+										at: 'host' put: triple first;
+										at: 'path' put: triple second;
+										at: 'name' put: triple third;
+										yourself ])))
+]
+
 { #category : #'request handling - browser' }
 PintSampler >> printAge: aDateAndTime [
 	| segments |
@@ -314,12 +339,6 @@ PintSampler >> samplerDirectory [
 		ensureCreateDirectory
 ]
 
-{ #category : #'request handling - launcher' }
-PintSampler >> templateSource: aZnRequest [
-	^ ZnResponse
-		ok: (ZnEntity json: (STONJSON toString: glasses asArray))
-]
-
 { #category : #'accessing - taps' }
 PintSampler >> unregisterTap: anArray [
 	tapValves at: anArray ifPresent: [ :sem | sem terminateProcess ].
@@ -336,7 +355,7 @@ PintSampler >> upload: aZnRequest [
 						on: Error
 						do: [ :ex | ^ ZnResponse notFound: aZnRequest url ])
 				ifAbsent: [ ^ ZnResponse notFound: aZnRequest url ].
-			^ ZnResponse ok: 'OK' ].
+			^ ZnResponse ok: (ZnEntity text: 'OK') ].
 	^ ZnResponse notFound: aZnRequest url
 ]
 
