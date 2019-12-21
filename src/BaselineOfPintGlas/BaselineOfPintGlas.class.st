@@ -26,8 +26,8 @@ BaselineOfPintGlas >> baseline: spec [
 				package: 'PintGlas-Launcher'
 					with: [ spec requires: 'pharo-launcher' ].
 			spec
-				group: 'default' with: #('Tap');
-				group: 'Tap' with: #('PintGlas-Tap');
-				group: 'Sampler' with: #('PintGlas-Sampler');
-				group: 'Launcher' with: #('PintGlas-Launcher') ]
+				group: 'default' with: #('tap');
+				group: 'tap' with: #('PintGlas-Tap');
+				group: 'sampler' with: #('PintGlas-Sampler');
+				group: 'launcher' with: #('PintGlas-Launcher') ]
 ]
