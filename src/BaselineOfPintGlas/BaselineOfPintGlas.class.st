@@ -24,7 +24,7 @@ BaselineOfPintGlas >> baseline: spec [
 				package: 'PintGlas-Sampler'
 					with: [ spec requires: #('PintGlas-Common' 'ZincHTTPComponents') ];
 				package: 'PintGlas-Launcher'
-					with: [ spec requires: 'pharo-launcher' ].
+					with: [ spec requires: 'PharoLauncher' ].
 			spec
 				group: 'default' with: #('tap');
 				group: 'tap' with: #('PintGlas-Tap');
