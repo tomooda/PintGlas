@@ -15,7 +15,7 @@ BaselineOfPintGlas >> baseline: spec [
 						repository: 'github://svenvc/zinc/repository';
 						loads: 'WebSocket' ];
 				baseline: 'PharoLauncher'
-					with: [ spec repository: 'github://pharo-project/pharo-launcher/src' ].
+					with: [ spec repository: 'github://pharo-project/pharo-launcher:development/src' ].
 			spec
 				package: 'PintGlas-Common'
 					with: [ spec requires: 'ZincHTTPComponents' ];
