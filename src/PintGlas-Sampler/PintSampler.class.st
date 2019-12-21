@@ -26,6 +26,11 @@ PintSampler class >> flushServer [
 	Server := nil
 ]
 
+{ #category : #'class initialization' }
+PintSampler class >> initialize [
+	Smalltalk addToStartUpList: self
+]
+
 { #category : #'server handling' }
 PintSampler class >> server [
 	^ Server
@@ -53,6 +58,11 @@ PintSampler class >> start [
 	self server
 		register;
 		start
+]
+
+{ #category : #'system startup' }
+PintSampler class >> startUp [
+	self current ifNotNil: [ :sampler | sampler loadGlasses ]
 ]
 
 { #category : #'server handling' }
@@ -255,12 +265,7 @@ PintSampler >> indexHtml: aZnRequest [
 PintSampler >> initialize [
 	super initialize.
 	tapValves := Dictionary new.
-	glasses := SortedCollection
-		sortBlock: [ :more :less | (less at: 'date') <= (more at: 'date') ].
-	(self samplerDirectory childrenMatching: '*.glas')
-		do: [ :ref | 
-			ref
-				readStreamDo: [ :stream | glasses add: (STONJSON fromStream: stream) ] ]
+	self loadGlasses
 ]
 
 { #category : #'request handling - tap' }
@@ -288,6 +293,16 @@ PintSampler >> liveTapsJson: aZnRequest [
 										at: 'path' put: triple second;
 										at: 'name' put: triple third;
 										yourself ])))
+]
+
+{ #category : #private }
+PintSampler >> loadGlasses [
+	glasses := SortedCollection
+		sortBlock: [ :more :less | (less at: 'date') <= (more at: 'date') ].
+	(self samplerDirectory childrenMatching: '*.glas')
+		do: [ :ref | 
+			ref
+				readStreamDo: [ :stream | glasses add: (STONJSON fromStream: stream) ] ]
 ]
 
 { #category : #'request handling - browser' }

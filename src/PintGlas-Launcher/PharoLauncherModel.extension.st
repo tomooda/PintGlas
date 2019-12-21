@@ -24,6 +24,7 @@ PharoLauncherModel >> getTap: aDictionary [
 PharoLauncherModel >> openTapDialog [
 	| tapList dialog |
 	tapList := MultiColumnListPresenter new
+		title: 'Live Pharo images';
 		displayBlock: [ :tap | 
 			{(tap at: 'sampler-name').
 			(tap at: 'host').

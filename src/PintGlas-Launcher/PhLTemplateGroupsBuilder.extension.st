@@ -11,3 +11,15 @@ PhLTemplateGroupsBuilder >> buildWithSamplers [
 				templatesDo: [ :templateSource | group addTemplate: templateSource asTemplate ].
 			group ]
 ]
+
+{ #category : #'*PintGlas-Launcher' }
+PhLTemplateGroupsBuilder class >> buildWithSamplers [
+	^ self buildWithSamplersFrom: PhLTemplateSources fromFile
+]
+
+{ #category : #'*PintGlas-Launcher' }
+PhLTemplateGroupsBuilder class >> buildWithSamplersFrom: aPhLTemplateSources [
+	^ self new
+		initializeWithSources: aPhLTemplateSources;
+		buildWithSamplers
+]
