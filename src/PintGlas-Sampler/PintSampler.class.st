@@ -176,6 +176,11 @@ PintSampler >> glasIdKey [
 ]
 
 { #category : #'accessing-keys' }
+PintSampler >> glasImageIdKey [
+	^ 'imageId'
+]
+
+{ #category : #'accessing-keys' }
 PintSampler >> glasNameKey [
 	^ 'name'
 ]
@@ -305,12 +310,12 @@ PintSampler >> key: key value: value matches: glasDictionary [
 		ifTrue: [ ^ true ].
 	key = self querySuccessorKey
 		ifTrue: [ | id |
-			id := glasDictionary at: self glasIdKey ifAbsent: [ ^ false ].
+			id := glasDictionary at: self glasImageIdKey ifAbsent: [ ^ false ].
 			^ value size > id size
 				and: [ (value copyFrom: 1 to: id size) = id ] ].
 	key = self querySupercedesKey
 		ifTrue: [ | id |
-			id := glasDictionary at: self glasIdKey ifAbsent: [ ^ false ].
+			id := glasDictionary at: self glasImageIdKey ifAbsent: [ ^ false ].
 			^ value size < id size
 				and: [ (id copyFrom: 1 to: value size) = value ] ].
 	^ ((glasDictionary at: key ifAbsent: [ '' ]) findString: value) = 0
