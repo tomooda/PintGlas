@@ -70,6 +70,30 @@ PintTap class >> beamUp [
 		forkAt: Processor userSchedulingPriority
 ]
 
+{ #category : #utilities }
+PintTap class >> checkForSuccessors [
+	<script: 'PintTap checkForSuccessors'>
+	self successors
+		ifNotEmpty: [ :successors | 
+			UIManager default
+				alert:
+					(String
+						streamContents: [ :stream | 
+							successors
+								do: [ :tap | 
+									stream
+										nextPutAll: (tap at: 'host');
+										nextPutAll: ':';
+										nextPutAll: (tap at: 'path');
+										nextPut: $/;
+										nextPutAll: (tap at: 'name');
+										nextPutAll: '.image (';
+										nextPutAll: (tap at: 'date');
+										nextPutAll: ')';
+										cr ] ]) trim
+				title: 'Successors of the current image...' ]
+]
+
 { #category : #accessing }
 PintTap class >> customTapName [
 	^ CustomTapName ifNil: [ String new ]
@@ -164,7 +188,15 @@ PintTap class >> pintGlasMenuOn: aBuilder [
 				enabledBlock: [ self isLive ];
 				parent: #PintGlas;
 				order: 3;
-				help: 'Disconnect PintGlas server' ]
+				help: 'Disconnect PintGlas server';
+				withSeparatorAfter;
+				withSeparatorAfter.
+			(aBuilder item: #PintGlasCheckForSuccessors)
+				action: [ self checkForSuccessors ];
+				label: 'check for successors';
+				parent: #PintGlas;
+				order: 3;
+				help: 'Search PintGlas server for derived images' ]
 ]
 
 { #category : #menus }
@@ -311,6 +343,23 @@ PintTap class >> stop [
 				ifFalse: [ SamplerCommunicationProcess terminate.
 					UIManager default inform: 'Disconnected.' ] ].
 	SamplerCommunicationProcess := nil
+]
+
+{ #category : #utilities }
+PintTap class >> successors [
+	| url response |
+	url := (ZnUrl new
+		scheme:
+			(self samplerScheme = 'wss'
+				ifTrue: 'https'
+				ifFalse: [ 'http' ]);
+		host: self samplerHost;
+		port: self samplerPort;
+		yourself) / 'launcher-supercedes' / self imageId.
+	response := ZnEasy get: url.
+	response isSuccess
+		ifFalse: [ ^ Array new ].
+	^ STONJSON fromStream: response entity readStream
 ]
 
 { #category : #accessing }
