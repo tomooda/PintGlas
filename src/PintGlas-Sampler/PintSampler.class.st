@@ -49,6 +49,8 @@ PintSampler class >> server [
 							to: [ :request | handler bottlesJson: request ];
 						map: 'launcher-taps'
 							to: [ :request | handler liveTapsJson: request ];
+						map: 'launcher-supercedes'
+							to: [ :request | handler supercedes: request ];
 						yourself);
 				yourself ]
 ]
@@ -78,13 +80,14 @@ PintSampler class >> stop [
 PintSampler >> acceptBeam: tap on: aWebSocket [
 	| zipFileRef |
 	tap
-		at: 'date' put: DateAndTime now printString;
-		at: 'glas-id' put: (self hash: 32).
+		at: self glasDateKey put: DateAndTime now printString;
+		at: self glasIdKey put: (self hash: 32).
 	zipFileRef := (self zipFileFor: tap)
 		ensureDelete;
 		yourself.
 	aWebSocket readMessageToFile: zipFileRef.
-	tap at: 'size' put: zipFileRef size.
+	tap at: self glasSizeKey put: zipFileRef size.
+	tap removeKey: self tapActionKey ifAbsent: [  ].
 	(self glasFileFor: tap)
 		ensureDelete;
 		writeStreamDo: [ :stream | STONJSON put: tap onStream: stream ].
@@ -94,10 +97,10 @@ PintSampler >> acceptBeam: tap on: aWebSocket [
 { #category : #'request handling - tap' }
 PintSampler >> acceptWait: tapInfo on: aWebSocket [
 	| tapName tapKey sem |
-	tapName := tapInfo at: 'name'.
-	tapKey := {(tapInfo at: 'host').
-	(tapInfo at: 'path').
-	(tapInfo at: 'name')}.
+	tapName := tapInfo at: self glasNameKey.
+	tapKey := {(tapInfo at: self glasHostKey).
+	(tapInfo at: self glasPathKey).
+	(tapInfo at: self glasNameKey)}.
 	sem := self registerTap: tapKey.
 	[ [ [ 1 seconds wait.
 	aWebSocket ping ] repeat ]
@@ -105,10 +108,6 @@ PintSampler >> acceptWait: tapInfo on: aWebSocket [
 		do: [ :ex | self unregisterTap: tapKey ] ]
 		forkAt: Processor userBackgroundPriority.
 	[ [ sem wait.
-	Transcript
-		cr;
-		show: 'sending ';
-		show: tapName.
 	aWebSocket sendMessage: tapName ] repeat ]
 		ensure: [ self unregisterTap: tapName ]
 ]
@@ -146,7 +145,7 @@ PintSampler >> download: aZnRequest [
 				andLength: ref size)
 ]
 
-{ #category : #'accessing-glasses' }
+{ #category : #'accessing-keys' }
 PintSampler >> glasDateKey [
 	^ 'date'
 ]
@@ -166,24 +165,29 @@ PintSampler >> glasFileFor: tap [
 		withExtension: self glasFileExtension
 ]
 
-{ #category : #'accessing-glasses' }
+{ #category : #'accessing-keys' }
 PintSampler >> glasHostKey [
 	^ 'host'
 ]
 
-{ #category : #'accessing-glasses' }
+{ #category : #'accessing-keys' }
 PintSampler >> glasIdKey [
 	^ 'glas-id'
 ]
 
-{ #category : #'accessing-glasses' }
+{ #category : #'accessing-keys' }
 PintSampler >> glasNameKey [
 	^ 'name'
 ]
 
-{ #category : #'accessing-glasses' }
+{ #category : #'accessing-keys' }
 PintSampler >> glasPathKey [
 	^ 'path'
+]
+
+{ #category : #'accessing-keys' }
+PintSampler >> glasSizeKey [
+	^ 'size'
 ]
 
 { #category : #enumerating }
@@ -295,6 +299,23 @@ PintSampler >> initialize [
 	self loadGlasses
 ]
 
+{ #category : #testing }
+PintSampler >> key: key value: value matches: glasDictionary [
+	value isEmpty
+		ifTrue: [ ^ true ].
+	key = self querySuccessorKey
+		ifTrue: [ | id |
+			id := glasDictionary at: self glasIdKey ifAbsent: [ ^ false ].
+			^ value size > id size
+				and: [ (value copyFrom: 1 to: id size) = id ] ].
+	key = self querySupercedesKey
+		ifTrue: [ | id |
+			id := glasDictionary at: self glasIdKey ifAbsent: [ ^ false ].
+			^ value size < id size
+				and: [ (id copyFrom: 1 to: value size) = value ] ].
+	^ ((glasDictionary at: key ifAbsent: [ '' ]) findString: value) = 0
+]
+
 { #category : #'request handling - tap' }
 PintSampler >> liveKeys [
 	^ tapValves keys
@@ -316,9 +337,9 @@ PintSampler >> liveTapsJson: aZnRequest [
 							(self liveKeys asArray
 								collect: [ :triple | 
 									Dictionary new
-										at: 'host' put: triple first;
-										at: 'path' put: triple second;
-										at: 'name' put: triple third;
+										at: self glasHostKey put: triple first;
+										at: self glasPathKey put: triple second;
+										at: self glasNameKey put: triple third;
 										yourself ])))
 ]
 
@@ -326,7 +347,8 @@ PintSampler >> liveTapsJson: aZnRequest [
 PintSampler >> loadGlasses [
 	| newGlasses |
 	newGlasses := SortedCollection
-		sortBlock: [ :more :less | (less at: 'date') <= (more at: 'date') ].
+		sortBlock:
+			[ :more :less | (less at: self glasDateKey) <= (more at: self glasDateKey) ].
 	(self samplerDirectory
 		childrenMatching: '*.' , self glasFileExtension)
 		do: [ :ref | 
@@ -372,10 +394,19 @@ PintSampler >> query: aDictionary glassesDo: aBlock [
 PintSampler >> query: queryDictionary matches: glasDictionary [
 	queryDictionary
 		keysAndValuesDo: [ :key :value | 
-			value
-				ifNotEmpty: [ ((glasDictionary at: key ifAbsent: [ '' ]) findString: value) = 0
-						ifTrue: [ ^ false ] ] ].
+			(self key: key value: value matches: glasDictionary)
+				ifFalse: [ ^ false ] ].
 	^ true
+]
+
+{ #category : #'accessing-keys' }
+PintSampler >> querySuccessorKey [
+	^ 'successor'
+]
+
+{ #category : #'accessing-keys' }
+PintSampler >> querySupercedesKey [
+	^ 'supercedes'
 ]
 
 { #category : #'accessing-taps' }
@@ -408,6 +439,42 @@ PintSampler >> samplerDirectory [
 	^ (samplerDirectory
 		ifNil: [ samplerDirectory := self defaultSamplerDirectory ])
 		ensureCreateDirectory
+]
+
+{ #category : #'request handling - tap' }
+PintSampler >> supercedes: aZnRequest [
+	| url segments tap |
+	url := aZnRequest url.
+	segments := url pathSegments.
+	segments size = 1
+		ifFalse: [ ^ ZnResponse notFound: url ].
+	tap := Dictionary new
+		at: self querySupercedesKey put: segments last;
+		yourself.
+	^ ZnResponse
+		ok:
+			(ZnEntity
+				json:
+					(STONJSON
+						toString:
+							(Array
+								streamContents:
+									[ :stream | self query: tap glassesDo: [ :glas | stream nextPut: glas ] ])))
+]
+
+{ #category : #'accessing-keys' }
+PintSampler >> tapActionBeam [
+	^ 'beam'
+]
+
+{ #category : #'accessing-keys' }
+PintSampler >> tapActionKey [
+	^ 'action'
+]
+
+{ #category : #'accessing-keys' }
+PintSampler >> tapActionWait [
+	^ 'wait'
 ]
 
 { #category : #accessing }
@@ -458,20 +525,11 @@ PintGlas.upload = function (host,path,name) {
 PintSampler >> value: aWebSocket [
 	| tapInfo action |
 	tapInfo := STONJSON fromString: aWebSocket readMessage.
-	action := tapInfo
-		at: 'action'
-		ifAbsent: [ Transcript
-				cr;
-				show: 'action not specified'.
-			^ self ].
-	action = 'beam'
+	action := tapInfo at: self tapActionKey ifAbsent: [ ^ self ].
+	action = self tapActionBeam
 		ifTrue: [ ^ self acceptBeam: tapInfo on: aWebSocket ].
-	action = 'wait'
-		ifTrue: [ ^ self acceptWait: tapInfo on: aWebSocket ].
-	Transcript
-		cr;
-		show: 'Unknown action: ';
-		show: action
+	action = self tapActionWait
+		ifTrue: [ ^ self acceptWait: tapInfo on: aWebSocket ]
 ]
 
 { #category : #accessing }
