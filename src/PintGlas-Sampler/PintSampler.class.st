@@ -42,6 +42,7 @@ PintSampler class >> server [
 					(ZnPrefixMappingDelegate new
 						map: nil to: [ :request | handler indexHtml: request ];
 						map: 'download' to: [ :request | handler download: request ];
+						map: 'remove' to: [ :request | handler remove: request ];
 						map: 'upload' to: [ :request | handler upload: request ];
 						map: 'taps' to: (ZnWebSocketDelegate handler: handler);
 						map: 'launcher-bottles'
@@ -74,27 +75,20 @@ PintSampler class >> stop [
 ]
 
 { #category : #'request handling - tap' }
-PintSampler >> acceptBeam: tapInfo on: aWebSocket [
-	| glasId zipFileRef |
-	glasId := self hash: 32.
-	zipFileRef := self samplerDirectory / glasId withExtension: 'zip'.
-	zipFileRef ensureDelete.
-	Transcript
-		cr;
-		show: 'receiving a file to ';
-		show: zipFileRef printString.
-	aWebSocket readMessageToFile: zipFileRef.
-	Transcript
-		cr;
-		show: 'done'.
-	tapInfo
+PintSampler >> acceptBeam: tap on: aWebSocket [
+	| zipFileRef |
+	tap
 		at: 'date' put: DateAndTime now printString;
-		at: 'size' put: zipFileRef size;
-		at: 'glas-id' put: glasId.
-	(self samplerDirectory / glasId withExtension: 'glas')
+		at: 'glas-id' put: (self hash: 32).
+	zipFileRef := (self zipFileFor: tap)
 		ensureDelete;
-		writeStreamDo: [ :stream | STONJSON put: tapInfo onStream: stream ].
-	glasses add: tapInfo
+		yourself.
+	aWebSocket readMessageToFile: zipFileRef.
+	tap at: 'size' put: zipFileRef size.
+	(self glasFileFor: tap)
+		ensureDelete;
+		writeStreamDo: [ :stream | STONJSON put: tap onStream: stream ].
+	glasses add: tap
 ]
 
 { #category : #'request handling - tap' }
@@ -119,12 +113,6 @@ PintSampler >> acceptWait: tapInfo on: aWebSocket [
 		ensure: [ self unregisterTap: tapName ]
 ]
 
-{ #category : #'accessing - glasses' }
-PintSampler >> addGlass: aTapInfo [
-	glasses add: aTapInfo.
-	^ aTapInfo
-]
-
 { #category : #'request handling - launcher' }
 PintSampler >> bottlesJson: aZnRequest [
 	^ ZnResponse
@@ -138,13 +126,16 @@ PintSampler >> defaultSamplerDirectory [
 
 { #category : #'request handling - browser' }
 PintSampler >> download: aZnRequest [
-	| url segments glasId ref |
+	| url segments ref |
 	url := aZnRequest url.
 	segments := url pathSegments.
 	segments size = 1
 		ifFalse: [ ^ ZnResponse notFound: url ].
-	glasId := segments last.
-	ref := self samplerDirectory / glasId withExtension: 'zip'.
+	ref := self
+		zipFileFor:
+			(Dictionary new
+				at: self glasIdKey put: segments last;
+				yourself).
 	ref isFile
 		ifFalse: [ ^ ZnResponse notFound: url ].
 	^ ZnResponse
@@ -155,9 +146,44 @@ PintSampler >> download: aZnRequest [
 				andLength: ref size)
 ]
 
-{ #category : #'accessing - glasses' }
-PintSampler >> glasses [
-	^ glasses
+{ #category : #'accessing-glasses' }
+PintSampler >> glasDateKey [
+	^ 'date'
+]
+
+{ #category : #accessing }
+PintSampler >> glasFileExtension [
+	^ 'glas'
+]
+
+{ #category : #'accessing-glasses' }
+PintSampler >> glasFileFor: tap [
+	^ self samplerDirectory
+		/
+			(tap isString
+				ifTrue: [ tap ]
+				ifFalse: [ tap at: self glasIdKey ])
+		withExtension: self glasFileExtension
+]
+
+{ #category : #'accessing-glasses' }
+PintSampler >> glasHostKey [
+	^ 'host'
+]
+
+{ #category : #'accessing-glasses' }
+PintSampler >> glasIdKey [
+	^ 'glas-id'
+]
+
+{ #category : #'accessing-glasses' }
+PintSampler >> glasNameKey [
+	^ 'name'
+]
+
+{ #category : #'accessing-glasses' }
+PintSampler >> glasPathKey [
+	^ 'path'
 ]
 
 { #category : #enumerating }
@@ -242,17 +268,18 @@ PintSampler >> indexHtml: aZnRequest [
 				glassesDo: [ :glas | 
 					stream
 						nextPutAll: '<tr><td>';
-						nextPutAll: (glas at: 'host');
+						nextPutAll: (glas at: self glasHostKey);
 						nextPutAll: '</td><td>';
-						nextPutAll: (glas at: 'path');
+						nextPutAll: (glas at: self glasPathKey);
 						nextPutAll: '</td><td>';
-						nextPutAll: (glas at: 'name');
+						nextPutAll: (glas at: self glasNameKey);
 						nextPutAll: '</td><td>';
-						nextPutAll:
-							(self printAge: (glas at: 'date') asDateAndTime);
+						nextPutAll: (self printAge: (glas at: self glasDateKey) asDateAndTime);
 						nextPutAll: '</td><td><a style="text-decoration-line: none;" href="download/';
-						nextPutAll: (glas at: 'glas-id');
-						nextPutAll: '">🍺</a></td></tr>';
+						nextPutAll: (glas at: self glasIdKey);
+						nextPutAll: '">🍺</a><a style="text-decoration-line: none;" href="remove/';
+						nextPutAll: (glas at: self glasIdKey);
+						nextPutAll: '">❌</a></td></tr>';
 						cr ].
 			stream
 				nextPutAll: '</table>';
@@ -295,14 +322,29 @@ PintSampler >> liveTapsJson: aZnRequest [
 										yourself ])))
 ]
 
-{ #category : #private }
+{ #category : #'accessing-glasses' }
 PintSampler >> loadGlasses [
-	glasses := SortedCollection
+	| newGlasses |
+	newGlasses := SortedCollection
 		sortBlock: [ :more :less | (less at: 'date') <= (more at: 'date') ].
-	(self samplerDirectory childrenMatching: '*.glas')
+	(self samplerDirectory
+		childrenMatching: '*.' , self glasFileExtension)
 		do: [ :ref | 
 			ref
-				readStreamDo: [ :stream | glasses add: (STONJSON fromStream: stream) ] ]
+				readStreamDo: [ :stream | newGlasses add: (STONJSON fromStream: stream) ] ].
+	^ glasses := newGlasses
+]
+
+{ #category : #'accessing-glasses' }
+PintSampler >> moveToTrash: glas [
+	glasses
+		remove:
+			(glasses
+				detect: [ :g | (g at: self glasIdKey) = (glas at: self glasIdKey) ]
+				ifNone: [ ^ self ])
+		ifAbsent: [ ^ self ].
+	(self glasFileFor: glas) moveTo: self trashDirectory.
+	(self zipFileFor: glas) moveTo: self trashDirectory
 ]
 
 { #category : #'request handling - browser' }
@@ -336,13 +378,27 @@ PintSampler >> query: queryDictionary matches: glasDictionary [
 	^ true
 ]
 
-{ #category : #'accessing - taps' }
+{ #category : #'accessing-taps' }
 PintSampler >> registerTap: aString [
 	tapValves at: aString ifPresent: [ :sem | sem terminateProcess ].
 	^ tapValves at: aString put: Semaphore new
 ]
 
-{ #category : #'accessing - taps' }
+{ #category : #'request handling - browser' }
+PintSampler >> remove: aZnRequest [
+	| url segments tap |
+	url := aZnRequest url.
+	segments := url pathSegments.
+	segments size = 1
+		ifFalse: [ ^ ZnResponse notFound: url ].
+	tap := Dictionary new
+		at: self glasIdKey put: segments last;
+		yourself.
+	(self moveToTrash: tap) ifNil: [ ZnResponse notFound: url ].
+	^ ZnResponse redirect: aZnRequest url / '..' / '..'
+]
+
+{ #category : #'accessing-taps' }
 PintSampler >> retrieveTap: anArray ifAbsent: errorBlock [
 	(tapValves at: anArray ifAbsent: [ ^ errorBlock value ]) signal
 ]
@@ -354,7 +410,14 @@ PintSampler >> samplerDirectory [
 		ensureCreateDirectory
 ]
 
-{ #category : #'accessing - taps' }
+{ #category : #accessing }
+PintSampler >> trashDirectory [
+	^ (self samplerDirectory / '.trash')
+		ensureCreateDirectory;
+		yourself
+]
+
+{ #category : #'accessing-taps' }
 PintSampler >> unregisterTap: anArray [
 	tapValves at: anArray ifPresent: [ :sem | sem terminateProcess ].
 	tapValves removeKey: anArray ifAbsent: [  ]
@@ -409,4 +472,19 @@ PintSampler >> value: aWebSocket [
 		cr;
 		show: 'Unknown action: ';
 		show: action
+]
+
+{ #category : #accessing }
+PintSampler >> zipFileExtension [
+	^ 'zip'
+]
+
+{ #category : #'accessing-glasses' }
+PintSampler >> zipFileFor: tap [
+	^ self samplerDirectory
+		/
+			(tap isString
+				ifTrue: [ tap ]
+				ifFalse: [ tap at: self glasIdKey ])
+		withExtension: self zipFileExtension
 ]
