@@ -2,21 +2,25 @@ Extension { #name : #PharoLauncherModel }
 
 { #category : #'*PintGlas-Launcher' }
 PharoLauncherModel >> getTap: aDictionary [
-	| client |
-	client := (PhLDownloadManager default
-		newHTTPClientForUrl: (aDictionary at: 'sampler-url') asUrl / 'upload')
-		beOneShot;
-		enforceAcceptContentType: true;
-		entity:
-			(ZnEntity
-				json:
-					(STONJSON
-						toString:
-							{(aDictionary at: 'host').
-							(aDictionary at: 'path').
-							(aDictionary at: 'name')}));
-		yourself.
-	PhLDownloadManager default displayProgressDuring: [ client post ].
+	[ PhLDownloadManager default
+		displayProgressDuring: [ | client |
+			client := (PhLDownloadManager default
+				newHTTPClientForUrl: (aDictionary at: 'sampler-url') asUrl / 'upload')
+				beOneShot;
+				timeout: 10;
+				enforceAcceptContentType: true;
+				entity:
+					(ZnEntity
+						json:
+							(STONJSON
+								toString:
+									{(aDictionary at: 'host').
+									(aDictionary at: 'path').
+									(aDictionary at: 'name')}));
+				yourself.
+			client post ] ]
+		on: PhLDownloadError
+		do: [ :ex | UIManager default alert: 'Network Error' ].
 	^ self
 ]
 
@@ -39,11 +43,14 @@ PharoLauncherModel >> openTapDialog [
 				streamContents: [ :stream | 
 					PhLTemplateSources samplers
 						do: [ :sampler | 
-							(STONJSON
+							([ STONJSON
 								fromStream:
 									(PhLDownloadManager default
 										downloadToPositionableStream: sampler url asUrl / 'launcher-taps'
-										mimeType: ZnMimeType applicationJson))
+										mimeType: ZnMimeType applicationJson
+										timeout: 10) ]
+								on: PhLDownloadError
+								do: [ :ex | ex return: Array new ])
 								do: [ :tap | 
 									stream
 										nextPut:

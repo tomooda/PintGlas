@@ -115,7 +115,8 @@ PintTemplateGroup >> templatesAndGroups [
 		fromStream:
 			(PhLDownloadManager default
 				downloadToPositionableStream: url asUrl / 'launcher-bottles'
-				mimeType: ZnMimeType applicationJson))
+				mimeType: ZnMimeType applicationJson
+				timeout: 10))
 		asSortedCollection:
 			[ :less :more | (less at: self imageIdKey) <= (more at: self imageIdKey) ])
 		asArray ]
