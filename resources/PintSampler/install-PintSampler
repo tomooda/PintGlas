@@ -1,0 +1,5 @@
+#!/bin/bash
+cd /usr/local/pintglas
+rm -rf pharo-local
+./pharo Pharo.image save PintSampler
+./pharo PintSampler.image eval --save "Metacello new baseline: 'PintGlas'; repository: 'github://tomooda/PintGlas/src'; load: 'sampler'. PintSampler start"
